@@ -27,8 +27,14 @@ def send_whatsapp_message(to, message):
     }
     
     try:
+        print(f"🔄 Attempting to send message to {to}")
+        print(f"🔗 URL: {url}")
+        print(f"📦 Payload: {json.dumps(payload, indent=2)}")
+        
         response = requests.post(url, headers=headers, json=payload)
-        print(f"📤 Message sent to {to}: {response.status_code}")
+        print(f"📤 Response status: {response.status_code}")
+        print(f"📄 Response body: {response.text}")
+        
         return response.status_code == 200
     except Exception as e:
         print(f"❌ Error sending message: {e}")
@@ -73,10 +79,12 @@ def webhook():
                                     from_number = message.get('from')
                                     text_body = message.get('text', {}).get('body', '').lower().strip()
                                     
-                                    print(f"📱 Message from {from_number}: {text_body}")
+                                    print(f"📱 Message from {from_number}: '{text_body}'")
+                                    print(f"🤖 Processing message type: {message.get('type')}")
                                     
                                     # Bot logic
                                     if 'hi' in text_body or 'hello' in text_body:
+                                        print(f"🎯 Detected greeting: '{text_body}'")
                                         welcome_msg = """🎉 Welcome to In-House Bot!
 
 I help creative entrepreneurs turn their Instagram profiles into professional product catalogs.
