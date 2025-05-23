@@ -534,20 +534,48 @@ def analyze_instagram_posts_with_vertex(posts, business_info):
         return generate_fallback_products(posts, business_info)
 
 def generate_fallback_products(posts, business_info):
-    """Generate fallback products when AI analysis fails"""
+    """Generate intelligent fallback products when AI analysis fails"""
+    # Use intelligent business analysis even for fallback
+    smart_products = generate_smart_mock_products(
+        business_info.get('display_name', 'Business'), 
+        business_info.get('bio', '')
+    )
+    
     products = []
-    for i, post in enumerate(posts[:3]):
+    
+    # If we have posts, use their images; otherwise use placeholder images
+    for i, smart_product in enumerate(smart_products):
+        if i < len(posts) and posts[i].get('image'):
+            image_url = posts[i]['image']
+        else:
+            # Use business-type appropriate placeholder images
+            business_name = business_info.get('display_name', '').lower()
+            bio = business_info.get('bio', '').lower()
+            combined = business_name + ' ' + bio
+            
+            if any(word in combined for word in ['plant', 'lily', 'flower', 'garden']):
+                image_url = f"https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&h=400&fit=crop"
+            elif any(word in combined for word in ['jewelry', 'gold', 'silver', 'ring']):
+                image_url = f"https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?w=400&h=400&fit=crop"
+            elif any(word in combined for word in ['food', 'cake', 'bakery']):
+                image_url = f"https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400&h=400&fit=crop"
+            elif any(word in combined for word in ['fashion', 'clothing', 'dress']):
+                image_url = f"https://images.unsplash.com/photo-1434389677669-e08b4cac3105?w=400&h=400&fit=crop"
+            else:
+                image_url = f"https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop"
+        
         products.append({
             'id': f"product_{i + 1}",
-            'name': f"Featured Item {i + 1}",
-            'price': f"₹{1299 + (i * 300)}",
-            'image': post.get('image', ''),
-            'description': post.get('caption', f"Quality product from {business_info.get('display_name', 'our store')}")[:100] + "...",
+            'name': smart_product['name'],
+            'price': smart_product['price'],
+            'image': image_url,
+            'description': smart_product['description'],
             'detected_objects': [],
             'labels': [],
-            'confidence': 0.6
+            'confidence': 0.7  # Higher confidence for intelligent generation
         })
-    return products
+    
+    return products[:4]  # Return max 4 products
 
 def generate_default_colors():
     """Generate default color scheme"""
@@ -581,46 +609,94 @@ def generate_ai_content(business_name, bio, image_urls):
     return generate_smart_mock_products(business_name, bio)
 
 def generate_smart_mock_products(business_name, bio):
-    """Generate intelligent mock products based on business analysis"""
+    """Generate highly intelligent products based on detailed business analysis"""
     business_lower = business_name.lower()
     bio_lower = bio.lower()
+    combined_text = business_lower + " " + bio_lower
     
-    # Detect business type
-    if any(word in business_lower + bio_lower for word in ['food', 'cake', 'bakery', 'restaurant', 'cafe']):
+    # Enhanced business type detection with more keywords
+    business_types = {
+        'plants_nursery': ['plant', 'nursery', 'garden', 'lily', 'peace lily', 'flower', 'bloom', 'botanical', 'green', 'indoor plants'],
+        'food_bakery': ['food', 'cake', 'bakery', 'restaurant', 'cafe', 'kitchen', 'cook', 'bake', 'sweet', 'pastry'],
+        'jewelry': ['jewelry', 'jewellery', 'earring', 'necklace', 'ring', 'silver', 'gold', 'diamond', 'pearl', 'bracelet'],
+        'fashion': ['fashion', 'clothing', 'dress', 'shirt', 'wear', 'style', 'boutique', 'apparel', 'textile'],
+        'arts_crafts': ['art', 'craft', 'handmade', 'pottery', 'ceramic', 'creative', 'artist', 'design', 'decor'],
+        'beauty_wellness': ['beauty', 'spa', 'skin', 'cosmetic', 'wellness', 'massage', 'therapy', 'salon'],
+        'home_decor': ['home', 'decor', 'interior', 'furniture', 'decoration', 'living', 'room', 'house'],
+        'fitness': ['fitness', 'gym', 'yoga', 'health', 'workout', 'exercise', 'training', 'wellness'],
+        'technology': ['tech', 'computer', 'software', 'digital', 'app', 'website', 'mobile', 'gadget']
+    }
+    
+    # Detect primary business type
+    detected_type = 'general'
+    max_matches = 0
+    
+    for biz_type, keywords in business_types.items():
+        matches = sum(1 for keyword in keywords if keyword in combined_text)
+        if matches > max_matches:
+            max_matches = matches
+            detected_type = biz_type
+    
+    # Generate products based on detected business type
+    if detected_type == 'plants_nursery':
+        return [
+            {"name": "Peace Lily Plant", "price": "899", "description": "Beautiful indoor peace lily plant that purifies air and brings tranquility to your space."},
+            {"name": "Monstera Deliciosa", "price": "1299", "description": "Stunning large-leaf monstera plant, perfect for modern home decor."},
+            {"name": "Snake Plant Collection", "price": "699", "description": "Set of 3 snake plants in decorative pots, ideal for beginners."},
+            {"name": "Ceramic Plant Pot Set", "price": "599", "description": "Handcrafted ceramic pots in various sizes, perfect for your green friends."},
+            {"name": "Plant Care Kit", "price": "399", "description": "Complete plant care kit with fertilizer, tools, and care instructions."}
+        ]
+    elif detected_type == 'food_bakery':
         return [
             {"name": "Signature Chocolate Cake", "price": "1299", "description": "Rich, moist chocolate cake with premium cocoa and fresh cream frosting."},
             {"name": "Artisan Cookies Box", "price": "599", "description": "Handcrafted cookies made with organic ingredients, perfect for gifting."},
             {"name": "Fresh Fruit Tart", "price": "899", "description": "Seasonal fresh fruits on vanilla custard with crispy pastry base."},
             {"name": "Custom Birthday Cake", "price": "1899", "description": "Personalized birthday cake with your choice of flavors and decorations."}
         ]
-    elif any(word in business_lower + bio_lower for word in ['jewelry', 'earring', 'necklace', 'ring', 'silver', 'gold']):
+    elif detected_type == 'jewelry':
         return [
             {"name": "Silver Statement Earrings", "price": "1599", "description": "Handcrafted sterling silver earrings with intricate traditional designs."},
             {"name": "Gold-Plated Necklace", "price": "2299", "description": "Elegant gold-plated necklace perfect for special occasions."},
             {"name": "Oxidized Silver Ring", "price": "899", "description": "Vintage-style oxidized silver ring with detailed craftsmanship."},
             {"name": "Pearl Drop Earrings", "price": "1299", "description": "Classic pearl drop earrings that complement any outfit beautifully."}
         ]
-    elif any(word in business_lower + bio_lower for word in ['fashion', 'clothing', 'dress', 'shirt', 'wear']):
+    elif detected_type == 'fashion':
         return [
-            {"name": "Embroidered Kurta", "price": "1899", "description": "Traditional embroidered kurta with modern cut and comfortable fit."},
-            {"name": "Designer Cotton Dress", "price": "1599", "description": "Flowy cotton dress with unique prints, perfect for casual outings."},
-            {"name": "Handwoven Scarf", "price": "799", "description": "Soft handwoven scarf in vibrant colors, ideal for all seasons."},
-            {"name": "Ethnic Palazzo Set", "price": "2199", "description": "Comfortable palazzo set with matching dupatta in premium fabric."}
+            {"name": "Designer Kurti", "price": "1599", "description": "Elegant designer kurti with modern prints and comfortable fit."},
+            {"name": "Cotton Palazzo Set", "price": "1299", "description": "Comfortable cotton palazzo with matching dupatta in trendy colors."},
+            {"name": "Silk Scarf Collection", "price": "799", "description": "Premium silk scarves in vibrant patterns, perfect for any season."},
+            {"name": "Ethnic Jewelry Set", "price": "999", "description": "Traditional jewelry set that complements ethnic wear beautifully."}
         ]
-    elif any(word in business_lower + bio_lower for word in ['art', 'craft', 'handmade', 'pottery', 'ceramic']):
+    elif detected_type == 'arts_crafts':
         return [
             {"name": "Handmade Ceramic Vase", "price": "1299", "description": "Beautiful ceramic vase with unique glaze patterns, perfect for home decor."},
             {"name": "Wooden Wall Art", "price": "1899", "description": "Intricate wooden wall art piece carved by skilled artisans."},
             {"name": "Macrame Plant Hanger", "price": "599", "description": "Handwoven macrame plant hanger that adds boho charm to any space."},
             {"name": "Clay Tea Set", "price": "1599", "description": "Traditional clay tea set including teapot and 4 cups, perfect for tea lovers."}
         ]
-    else:
-        # Generic products
+    elif detected_type == 'beauty_wellness':
         return [
-            {"name": "Premium Gift Box", "price": "1299", "description": "Curated gift box with handpicked items perfect for special occasions."},
-            {"name": "Artisan Special", "price": "999", "description": "Our signature handcrafted item made with attention to detail."},
-            {"name": "Limited Edition Item", "price": "1599", "description": "Exclusive limited edition piece from our latest collection."},
-            {"name": "Custom Creation", "price": "1899", "description": "Personalized item crafted specifically according to your preferences."}
+            {"name": "Organic Face Care Set", "price": "1299", "description": "Complete organic skincare set with cleanser, toner, and moisturizer."},
+            {"name": "Herbal Hair Oil", "price": "599", "description": "Natural herbal hair oil for nourishment and healthy growth."},
+            {"name": "Aromatherapy Candles", "price": "799", "description": "Set of relaxing aromatherapy candles for stress relief and ambiance."},
+            {"name": "Natural Body Scrub", "price": "899", "description": "Exfoliating body scrub made with natural ingredients for smooth skin."}
+        ]
+    elif detected_type == 'home_decor':
+        return [
+            {"name": "Decorative Wall Mirror", "price": "1599", "description": "Elegant decorative mirror that enhances any room's aesthetic."},
+            {"name": "Cushion Cover Set", "price": "899", "description": "Set of 4 designer cushion covers in matching patterns and colors."},
+            {"name": "Table Lamp", "price": "1299", "description": "Modern table lamp with adjustable brightness, perfect for reading."},
+            {"name": "Wall Art Canvas", "price": "999", "description": "Beautiful canvas art piece that adds personality to your walls."}
+        ]
+    else:
+        # Enhanced generic products with business name integration
+        business_adj = "Premium" if "premium" in combined_text else "Handcrafted" if any(word in combined_text for word in ["handmade", "craft", "artisan"]) else "Exclusive"
+        
+        return [
+            {"name": f"{business_adj} Collection Item", "price": "1299", "description": f"Signature {business_adj.lower()} item from {business_name}, made with attention to detail."},
+            {"name": f"{business_name} Special", "price": "999", "description": f"Our most popular item, carefully crafted to meet our customers' expectations."},
+            {"name": f"Limited Edition {business_adj}", "price": "1599", "description": f"Exclusive limited edition piece from our latest {business_name} collection."},
+            {"name": f"Custom {business_adj} Creation", "price": "1899", "description": f"Personalized item from {business_name}, crafted specifically according to your preferences."}
         ]
 
 def generate_mock_products():
