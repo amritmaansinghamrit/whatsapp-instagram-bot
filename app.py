@@ -1455,6 +1455,7 @@ def generate_catalog_website(instagram_username, profile_data, products):
 
 def process_smart_business_analysis(username, phone_number):
     """Process business using real Instagram data + smart AI analysis"""
+    print(f"🎯 FUNCTION CALLED: process_smart_business_analysis for @{username} phone: {phone_number}")
     try:
         processing_status[username] = "analyzing"
         print(f"🧠 Starting smart business analysis for @{username}")
@@ -2127,12 +2128,14 @@ Building your beautiful website now! ✨"""
                                         send_whatsapp_message(from_number, processing_msg)
                                         
                                         # Start smart processing immediately
+                                        print(f"🚀 About to start processing thread for {instagram_username}")
                                         thread = threading.Thread(
                                             target=process_smart_business_analysis, 
                                             args=(instagram_username, from_number)
                                         )
                                         thread.daemon = True
                                         thread.start()
+                                        print(f"🔥 Processing thread started for {instagram_username}")
                                     
                                     else:
                                         help_msg = """🤔 I didn't understand that.
