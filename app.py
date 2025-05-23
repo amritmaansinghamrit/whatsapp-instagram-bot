@@ -1544,6 +1544,16 @@ Want updates? Send me your Instagram again anytime!"""
     except Exception as e:
         print(f"❌ Error in smart business analysis: {e}")
         processing_status[username] = 'failed'
+        
+        # Clear the failed status after sending error message
+        import time
+        def clear_failed_status():
+            time.sleep(10)  # Wait 10 seconds then clear
+            if username in processing_status and processing_status[username] == 'failed':
+                del processing_status[username]
+        
+        threading.Thread(target=clear_failed_status, daemon=True).start()
+        
         error_msg = f"😅 Oops! Something went wrong with @{username}. Try sending it again!"
         send_whatsapp_message(phone_number, error_msg)
 
@@ -2125,6 +2135,25 @@ def check_status(username):
         "status": status,
         "catalog_ready": username in generated_websites
     })
+
+@app.route('/reset/<username>')
+def reset_status(username):
+    """Reset processing status for a username (debug endpoint)"""
+    if username in processing_status:
+        old_status = processing_status[username]
+        del processing_status[username]
+        return jsonify({
+            "username": username,
+            "old_status": old_status,
+            "action": "reset",
+            "message": f"Reset processing status for @{username}"
+        })
+    else:
+        return jsonify({
+            "username": username,
+            "action": "no_reset_needed", 
+            "message": f"No processing status found for @{username}"
+        })
 
 @app.route('/catalog/<username>')
 def serve_catalog(username):
