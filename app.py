@@ -448,30 +448,123 @@ def scrape_instagram_simple(username):
         return None
 
 def get_real_instagram_data(username):
-    """Get REAL Instagram data using multiple aggressive methods"""
+    """Get REAL Instagram data using the working meta tags method"""
     try:
         print(f"🔍 EXTRACTING REAL DATA for @{username}")
         
-        # Method 1: Advanced requests with multiple patterns
-        result = try_advanced_scraping(username)
-        if result['success']:
-            print(f"✅ Advanced scraping successful")
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Mobile/15E148 Safari/604.1'
+        }
+        
+        response = requests.get(f"https://www.instagram.com/{username}/", headers=headers, timeout=15)
+        print(f"📡 Response status: {response.status_code}")
+        
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Get meta tags (this method works!)
+            og_title = soup.find('meta', property='og:title')
+            og_description = soup.find('meta', property='og:description') 
+            og_image = soup.find('meta', property='og:image')
+            
+            title = og_title.get('content') if og_title else ''
+            description = og_description.get('content') if og_description else ''
+            image = og_image.get('content') if og_image else ''
+            
+            print(f"📊 Title: {title}")
+            print(f"📊 Description: {description[:100]}...")
+            
+            # Extract real data from meta tags
+            display_name = title.replace(' • Instagram photos and videos', '').replace(' (@', ' (')
+            if '(' in display_name:
+                display_name = display_name.split(' (')[0].strip()
+            
+            # Extract follower count
+            follower_match = re.search(r'(\d+(?:,\d+)*)\s+Followers', title + ' ' + description)
+            followers = int(follower_match.group(1).replace(',', '')) if follower_match else 0
+            
+            # Extract posts count  
+            posts_match = re.search(r'(\d+(?:,\d+)*)\s+Posts', description)
+            post_count = int(posts_match.group(1).replace(',', '')) if posts_match else 0
+            
+            # Try to get actual bio from page source
+            bio = ''
+            bio_patterns = [
+                r'"biography":"([^"]*?)"',
+                r'"biography":\s*"([^"]*?)"'
+            ]
+            
+            for pattern in bio_patterns:
+                match = re.search(pattern, response.text)
+                if match:
+                    bio = match.group(1)
+                    try:
+                        # Decode Unicode escapes
+                        bio = bio.encode('latin1').decode('unicode_escape')
+                        bio = bio.replace('\\n', ' ').replace('\\', '').strip()
+                    except:
+                        bio = bio.replace('\\n', ' ').strip()
+                    break
+            
+            # If no bio found, use description but clean it up
+            if not bio:
+                bio = description.replace(f'{followers:,} Followers, ', '')
+                bio = re.sub(r'\d+(?:,\d+)* Following, \d+(?:,\d+)* Posts - See Instagram photos and videos from [^-]+ - ', '', bio)
+                bio = bio.replace('See Instagram photos and videos from ', '').strip()
+            
+            # Extract post images
+            posts = []
+            images = soup.find_all('img')
+            
+            for img in images:
+                src = img.get('src', '')
+                alt = img.get('alt', '')
+                
+                # Filter for actual Instagram post images
+                if (src and 'scontent' in src and 
+                    any(indicator in src for indicator in ['cdninstagram', 'fbcdn']) and
+                    not any(exclude in src.lower() for exclude in ['profile', 'avatar', 'story', 'highlight']) and
+                    'p' in src.split('/')):
+                    
+                    posts.append({
+                        'image': src,
+                        'caption': alt,
+                        'timestamp': '',
+                        'likes': 0,
+                        'comments': 0
+                    })
+            
+            # Remove duplicates
+            seen_urls = set()
+            unique_posts = []
+            for post in posts:
+                if post['image'] not in seen_urls:
+                    seen_urls.add(post['image'])
+                    unique_posts.append(post)
+            
+            posts = unique_posts[:12]  # Limit to 12 posts
+            
+            result = {
+                'bio': bio,
+                'full_name': display_name,
+                'followers': followers,
+                'post_count': post_count,
+                'profile_pic_url': image,
+                'posts': posts,
+                'username': username,
+                'success': True
+            }
+            
+            print(f"✅ REAL DATA EXTRACTED:")
+            print(f"   Name: {display_name}")
+            print(f"   Bio: {bio[:100]}...")
+            print(f"   Followers: {followers:,}")
+            print(f"   Posts found: {len(posts)}")
+            
             return result
         
-        # Method 2: Selenium with wait for dynamic content
-        result = try_selenium_extraction(username)
-        if result['success']:
-            print(f"✅ Selenium extraction successful")
-            return result
-        
-        # Method 3: Alternative endpoints
-        result = try_api_endpoints(username)
-        if result['success']:
-            print(f"✅ API endpoints successful")
-            return result
-        
-        print(f"❌ All extraction methods failed for @{username}")
-        return {'success': False, 'error': 'Could not extract real Instagram data'}
+        print(f"❌ Failed to fetch Instagram page (status: {response.status_code})")
+        return {'success': False, 'error': f'HTTP {response.status_code}'}
         
     except Exception as e:
         print(f"❌ Error in Instagram data extraction: {e}")
