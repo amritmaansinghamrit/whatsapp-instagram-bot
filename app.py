@@ -8,9 +8,9 @@ from datetime import datetime
 app = Flask(__name__)
 
 # WhatsApp credentials from environment
-WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', '')
-PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID', '')
-VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'myverifytoken123')
+WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', '').strip()
+PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID', '').strip()
+VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'myverifytoken123').strip()
 
 def send_whatsapp_message(to, message):
     """Send a WhatsApp message"""
