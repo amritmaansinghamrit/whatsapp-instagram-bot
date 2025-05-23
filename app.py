@@ -448,161 +448,275 @@ def scrape_instagram_simple(username):
         return None
 
 def get_real_instagram_data(username):
-    """Get REAL Instagram data using multiple robust extraction methods"""
+    """Extract REAL Instagram data using advanced scraping techniques"""
     try:
         print(f"🔍 EXTRACTING REAL DATA for @{username}")
         
-        # Use multiple user agents for better success rate
-        user_agents = [
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 15_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Mobile/15E148 Safari/604.1',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15'
-        ]
-        
-        for i, user_agent in enumerate(user_agents):
-            try:
-                headers = {
-                    'User-Agent': user_agent,
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.5',
-                    'Accept-Encoding': 'gzip, deflate',
-                    'Connection': 'keep-alive',
-                    'Upgrade-Insecure-Requests': '1'
-                }
-                
-                print(f"🔄 Attempt {i+1}/3 with user agent: {user_agent[:50]}...")
-                response = requests.get(f"https://www.instagram.com/{username}/", headers=headers, timeout=20)
-                print(f"📡 Response status: {response.status_code}")
-                print(f"📏 Response length: {len(response.text)} characters")
-                
-                if response.status_code == 200 and len(response.text) > 1000:
-                    soup = BeautifulSoup(response.text, 'html.parser')
+        # Method 1: Try Instagram's mobile JSON endpoint
+        try:
+            mobile_headers = {
+                'User-Agent': 'Instagram 219.0.0.12.117 Android',
+                'Accept': '*/*',
+                'Accept-Language': 'en-US',
+                'Accept-Encoding': 'gzip, deflate',
+                'X-Instagram-AJAX': '1',
+                'X-CSRFToken': 'missing',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+            
+            print(f"🔄 Trying mobile JSON endpoint...")
+            json_url = f"https://www.instagram.com/api/v1/users/web_profile_info/?username={username}"
+            response = requests.get(json_url, headers=mobile_headers, timeout=15)
+            
+            if response.status_code == 200:
+                try:
+                    data = response.json()
+                    user_data = data.get('data', {}).get('user', {})
                     
-                    # Debug: Print all meta tags to see what we have
-                    meta_tags = soup.find_all('meta')
-                    print(f"🔍 Found {len(meta_tags)} meta tags")
-                    
-                    # Get meta tags
-                    og_title = soup.find('meta', property='og:title')
-                    og_description = soup.find('meta', property='og:description') 
-                    og_image = soup.find('meta', property='og:image')
-                    
-                    title = og_title.get('content') if og_title else ''
-                    description = og_description.get('content') if og_description else ''
-                    image = og_image.get('content') if og_image else ''
-                    
-                    print(f"📊 Title: '{title}'")
-                    print(f"📊 Description: '{description[:200]}...'")
-                    print(f"📊 Image: '{image[:100]}...'")
-                    
-                    # If we have real data, process it
-                    if title and description:
-                        # Extract real data from meta tags
-                        display_name = title.replace(' • Instagram photos and videos', '').replace(' • Instagram', '').replace(' (@', ' (')
-                        if '(' in display_name:
-                            display_name = display_name.split(' (')[0].strip()
+                    if user_data:
+                        print(f"✅ Got JSON data from mobile endpoint")
                         
-                        # Extract follower count from title or description  
-                        follower_match = re.search(r'(\d+(?:,\d+)*)\s+Followers', title + ' ' + description)
-                        followers = int(follower_match.group(1).replace(',', '')) if follower_match else 0
+                        bio = user_data.get('biography', '')
+                        full_name = user_data.get('full_name', username)
+                        followers = user_data.get('edge_followed_by', {}).get('count', 0)
+                        following = user_data.get('edge_follow', {}).get('count', 0)
+                        post_count = user_data.get('edge_owner_to_timeline_media', {}).get('count', 0)
+                        profile_pic = user_data.get('profile_pic_url_hd', user_data.get('profile_pic_url', ''))
                         
-                        # Extract posts count from description
-                        posts_match = re.search(r'(\d+(?:,\d+)*)\s+Posts', description)
-                        post_count = int(posts_match.group(1).replace(',', '')) if posts_match else 0
+                        # Extract recent posts
+                        posts = []
+                        timeline_media = user_data.get('edge_owner_to_timeline_media', {}).get('edges', [])
                         
-                        # Try to get actual bio from JSON-LD or page source
-                        bio = ''
-                        
-                        # Method 1: Look for JSON data in script tags
-                        scripts = soup.find_all('script', type='application/ld+json')
-                        for script in scripts:
-                            try:
-                                data = json.loads(script.string)
-                                if isinstance(data, dict) and 'description' in data:
-                                    bio = data['description']
-                                    break
-                            except:
-                                continue
-                        
-                        # Method 2: Look for biography in page source
-                        if not bio:
-                            bio_patterns = [
-                                r'"biography":"([^"]*?)"',
-                                r'"biography":\s*"([^"]*?)"',
-                                r'content="([^"]*?)" name="description"'
-                            ]
+                        for edge in timeline_media[:12]:  # Get up to 12 posts
+                            node = edge.get('node', {})
+                            post_data = {
+                                'id': node.get('id', ''),
+                                'image': node.get('display_url', ''),
+                                'caption': '',
+                                'likes': node.get('edge_liked_by', {}).get('count', 0),
+                                'comments': node.get('edge_media_to_comment', {}).get('count', 0),
+                                'timestamp': node.get('taken_at_timestamp', 0)
+                            }
                             
-                            for pattern in bio_patterns:
-                                match = re.search(pattern, response.text)
-                                if match:
-                                    bio = match.group(1)
-                                    try:
-                                        # Decode Unicode escapes
-                                        bio = bio.encode('latin1').decode('unicode_escape')
-                                        bio = bio.replace('\\n', ' ').replace('\\', '').strip()
-                                    except:
-                                        bio = bio.replace('\\n', ' ').strip()
-                                    if bio and len(bio) > 10:  # Only use if substantial
-                                        break
-                        
-                        # Method 3: Clean up description if no bio found
-                        if not bio and description:
-                            bio = description
-                            # Remove follower/following/posts counts
-                            bio = re.sub(r'\d+(?:,\d+)* Followers,?\s*', '', bio)
-                            bio = re.sub(r'\d+(?:,\d+)* Following,?\s*', '', bio)
-                            bio = re.sub(r'\d+(?:,\d+)* Posts?\s*-?\s*', '', bio)
-                            bio = bio.replace('See Instagram photos and videos from ', '').strip()
-                            if bio.startswith('- '):
-                                bio = bio[2:].strip()
-                        
-                        print(f"📊 Extracted bio: '{bio[:100]}...'")
-                        
-                        # Try to extract profile picture
-                        profile_pic = image if image else ''
-                        
-                        # Look for additional profile info in page source
-                        if not profile_pic:
-                            img_tags = soup.find_all('img')
-                            for img in img_tags:
-                                src = img.get('src', '')
-                                alt = img.get('alt', '').lower()
-                                if 'profile' in alt and src:
-                                    profile_pic = src
-                                    break
+                            # Extract caption
+                            caption_edges = node.get('edge_media_to_caption', {}).get('edges', [])
+                            if caption_edges:
+                                post_data['caption'] = caption_edges[0].get('node', {}).get('text', '')
+                            
+                            posts.append(post_data)
                         
                         result = {
                             'bio': bio,
-                            'full_name': display_name,
+                            'full_name': full_name,
                             'followers': followers,
+                            'following': following,
                             'post_count': post_count,
                             'profile_pic_url': profile_pic,
-                            'posts': [],  # We'll add posts later if needed
+                            'posts': posts,
                             'username': username,
                             'success': True
                         }
                         
-                        print(f"✅ REAL DATA EXTRACTED:")
-                        print(f"   Name: {display_name}")
+                        print(f"🎉 REAL DATA EXTRACTED (JSON):")
+                        print(f"   Name: {full_name}")
                         print(f"   Bio: {bio[:100]}...")
-                        print(f"   Followers: {followers}")
-                        print(f"   Posts: {post_count}")
+                        print(f"   Followers: {followers:,}")
+                        print(f"   Posts: {len(posts)} extracted from {post_count} total")
                         
                         return result
+                        
+                except json.JSONDecodeError:
+                    print(f"⚠️ JSON endpoint failed, trying web scraping...")
                     
-                    else:
-                        print(f"⚠️ No meta data found, trying next user agent...")
-                        continue
-                else:
-                    print(f"⚠️ Bad response or too short, trying next user agent...")
-                    continue
+        except Exception as e:
+            print(f"⚠️ Mobile endpoint error: {e}")
+        
+        # Method 2: Advanced web scraping with session and cookies
+        session = requests.Session()
+        
+        # Get Instagram's main page first to establish session
+        session.get('https://www.instagram.com/', timeout=10)
+        
+        # Try multiple sophisticated approaches
+        approaches = [
+            {
+                'url': f"https://www.instagram.com/{username}/",
+                'headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept-Encoding': 'gzip, deflate, br',
+                    'DNT': '1',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1',
+                    'Sec-Fetch-Dest': 'document',
+                    'Sec-Fetch-Mode': 'navigate',
+                    'Sec-Fetch-Site': 'none',
+                    'Cache-Control': 'max-age=0'
+                }
+            },
+            {
+                'url': f"https://www.instagram.com/{username}/?__a=1",
+                'headers': {
+                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+                    'Accept': 'application/json,text/javascript,*/*;q=0.01',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-Instagram-AJAX': '1'
+                }
+            }
+        ]
+        
+        for i, approach in enumerate(approaches):
+            try:
+                print(f"🔄 Attempt {i+1}: {approach['url']}")
+                response = session.get(approach['url'], headers=approach['headers'], timeout=20)
+                print(f"📡 Status: {response.status_code}, Length: {len(response.text)}")
+                
+                if response.status_code == 200:
+                    # Try to parse as JSON first
+                    if 'application/json' in response.headers.get('content-type', ''):
+                        try:
+                            data = response.json()
+                            # Handle JSON response
+                            if 'graphql' in data or 'user' in data:
+                                # Process JSON data similar to mobile endpoint
+                                print(f"✅ Got JSON response from web endpoint")
+                                # Extract data from JSON...
+                                continue
+                        except:
+                            pass
                     
+                    # Parse HTML response
+                    soup = BeautifulSoup(response.text, 'html.parser')
+                    
+                    # Look for JSON data embedded in script tags
+                    scripts = soup.find_all('script')
+                    for script in scripts:
+                        if script.string and 'window._sharedData' in script.string:
+                            try:
+                                # Extract shared data
+                                script_content = script.string
+                                start = script_content.find('window._sharedData = ') + len('window._sharedData = ')
+                                end = script_content.find(';</script>', start)
+                                if end == -1:
+                                    end = script_content.find(';', start)
+                                
+                                json_str = script_content[start:end]
+                                shared_data = json.loads(json_str)
+                                
+                                # Extract user data from shared data
+                                entry_data = shared_data.get('entry_data', {})
+                                profile_page = entry_data.get('ProfilePage', [])
+                                
+                                if profile_page:
+                                    user_data = profile_page[0].get('graphql', {}).get('user', {})
+                                    
+                                    if user_data:
+                                        print(f"✅ Extracted data from window._sharedData")
+                                        
+                                        bio = user_data.get('biography', '')
+                                        full_name = user_data.get('full_name', username)
+                                        followers = user_data.get('edge_followed_by', {}).get('count', 0)
+                                        post_count = user_data.get('edge_owner_to_timeline_media', {}).get('count', 0)
+                                        profile_pic = user_data.get('profile_pic_url_hd', user_data.get('profile_pic_url', ''))
+                                        
+                                        # Extract posts
+                                        posts = []
+                                        timeline_media = user_data.get('edge_owner_to_timeline_media', {}).get('edges', [])
+                                        
+                                        for edge in timeline_media[:12]:
+                                            node = edge.get('node', {})
+                                            post_data = {
+                                                'id': node.get('id', ''),
+                                                'image': node.get('display_url', ''),
+                                                'caption': '',
+                                                'likes': node.get('edge_liked_by', {}).get('count', 0),
+                                                'comments': node.get('edge_media_to_comment', {}).get('count', 0),
+                                                'timestamp': node.get('taken_at_timestamp', 0)
+                                            }
+                                            
+                                            # Extract caption
+                                            caption_edges = node.get('edge_media_to_caption', {}).get('edges', [])
+                                            if caption_edges:
+                                                post_data['caption'] = caption_edges[0].get('node', {}).get('text', '')
+                                            
+                                            posts.append(post_data)
+                                        
+                                        result = {
+                                            'bio': bio,
+                                            'full_name': full_name,
+                                            'followers': followers,
+                                            'post_count': post_count,
+                                            'profile_pic_url': profile_pic,
+                                            'posts': posts,
+                                            'username': username,
+                                            'success': True
+                                        }
+                                        
+                                        print(f"🎉 REAL DATA EXTRACTED (Shared Data):")
+                                        print(f"   Name: {full_name}")
+                                        print(f"   Bio: {bio[:100]}...")
+                                        print(f"   Followers: {followers:,}")
+                                        print(f"   Posts: {len(posts)} images extracted")
+                                        
+                                        return result
+                                        
+                            except Exception as script_error:
+                                print(f"⚠️ Script parsing error: {script_error}")
+                                continue
+                    
+                    # Fallback to meta tag extraction if JSON methods fail
+                    print(f"🔄 Falling back to meta tag extraction...")
+                    og_title = soup.find('meta', property='og:title')
+                    og_description = soup.find('meta', property='og:description')
+                    
+                    if og_title and og_description:
+                        title = og_title.get('content', '')
+                        description = og_description.get('content', '')
+                        
+                        if title and description:
+                            # Parse meta tag data
+                            display_name = title.replace(' • Instagram photos and videos', '').replace(' • Instagram', '')
+                            if '(' in display_name:
+                                display_name = display_name.split(' (')[0].strip()
+                            
+                            follower_match = re.search(r'(\d+(?:,\d+)*)\s+Followers', description)
+                            followers = int(follower_match.group(1).replace(',', '')) if follower_match else 0
+                            
+                            posts_match = re.search(r'(\d+(?:,\d+)*)\s+Posts', description)
+                            post_count = int(posts_match.group(1).replace(',', '')) if posts_match else 0
+                            
+                            # Try to extract bio from description
+                            bio = description
+                            bio = re.sub(r'\d+(?:,\d+)* Followers,?\s*', '', bio)
+                            bio = re.sub(r'\d+(?:,\d+)* Following,?\s*', '', bio)
+                            bio = re.sub(r'\d+(?:,\d+)* Posts?\s*-?\s*', '', bio)
+                            bio = bio.replace('See Instagram photos and videos from ', '').strip()
+                            
+                            result = {
+                                'bio': bio,
+                                'full_name': display_name,
+                                'followers': followers,
+                                'post_count': post_count,
+                                'profile_pic_url': '',
+                                'posts': [],
+                                'username': username,
+                                'success': True
+                            }
+                            
+                            print(f"✅ REAL DATA EXTRACTED (Meta Tags):")
+                            print(f"   Name: {display_name}")
+                            print(f"   Bio: {bio[:100]}...")
+                            print(f"   Followers: {followers:,}")
+                            
+                            return result
+                            
             except Exception as e:
-                print(f"❌ Error with user agent {i+1}: {e}")
+                print(f"❌ Approach {i+1} failed: {e}")
                 continue
         
-        # If all methods fail, return fallback
-        print(f"❌ All extraction methods failed, using fallback")
+        # If all methods fail, return failure
+        print(f"❌ All scraping methods failed")
         return {
             'bio': '',
             'full_name': username.replace('.', ' ').replace('_', ' ').title(),
@@ -613,7 +727,7 @@ def get_real_instagram_data(username):
             'username': username,
             'success': False
         }
-    
+        
     except Exception as e:
         print(f"❌ Critical error in Instagram extraction: {e}")
         return {
@@ -1576,6 +1690,138 @@ def generate_smart_mock_products(business_name, bio):
             {"name": f"Custom {business_adj} Creation", "price": "1899", "description": f"Personalized item from {business_name}, crafted specifically according to your preferences.", "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Custom"}
         ]
 
+def generate_products_from_real_posts(business_info):
+    """Generate products using REAL Instagram posts and captions"""
+    posts = business_info.get('posts', [])
+    bio = business_info.get('bio', '')
+    business_name = business_info.get('name', '')
+    
+    products = []
+    
+    # Analyze each post for product information
+    for i, post in enumerate(posts[:8]):  # Limit to 8 products
+        caption = post.get('caption', '').strip()
+        post_image = post.get('image', '')
+        
+        # Skip posts without images
+        if not post_image:
+            continue
+            
+        # Extract product information from caption
+        product_name = f"Item #{i+1}"
+        price = "Price on inquiry"
+        description = "Beautiful handcrafted item"
+        
+        # Try to extract product name from caption
+        if caption:
+            # Look for product names in caption
+            lines = caption.split('\n')
+            first_line = lines[0].strip()
+            
+            # If first line looks like a product name (not too long, no hashtags)
+            if len(first_line) < 50 and not first_line.startswith('#') and not first_line.startswith('@'):
+                product_name = first_line
+            
+            # Look for price indicators
+            price_patterns = [
+                r'₹\s*(\d+(?:,\d+)*)',
+                r'Rs\.?\s*(\d+(?:,\d+)*)',
+                r'Price:?\s*₹?\s*(\d+(?:,\d+)*)',
+                r'Cost:?\s*₹?\s*(\d+(?:,\d+)*)'
+            ]
+            
+            for pattern in price_patterns:
+                match = re.search(pattern, caption, re.IGNORECASE)
+                if match:
+                    price = f"₹{match.group(1)}"
+                    break
+            
+            # Use caption as description (cleaned up)
+            if len(caption) > 20:
+                # Remove hashtags and mentions for description
+                clean_caption = re.sub(r'#\w+', '', caption)
+                clean_caption = re.sub(r'@\w+', '', clean_caption)
+                clean_caption = clean_caption.replace('\n', ' ').strip()
+                
+                # Limit description length
+                if len(clean_caption) > 100:
+                    description = clean_caption[:97] + "..."
+                else:
+                    description = clean_caption
+        
+        # Fallback naming based on business type
+        if product_name == f"Item #{i+1}":
+            business_type = business_info.get('business_type', 'General Business')
+            if 'plant' in business_type.lower() or 'nursery' in business_type.lower():
+                product_name = f"Plant Collection #{i+1}"
+            elif 'craft' in business_type.lower() or 'handmade' in business_type.lower():
+                product_name = f"Handcrafted Item #{i+1}"
+            elif 'jewelry' in business_type.lower():
+                product_name = f"Jewelry Piece #{i+1}"
+            else:
+                product_name = f"{business_name} Item #{i+1}"
+        
+        product = {
+            "name": product_name,
+            "price": price,
+            "description": description,
+            "image": post_image  # Use REAL Instagram image
+        }
+        
+        products.append(product)
+    
+    print(f"✅ Generated {len(products)} products from REAL Instagram posts")
+    return products
+
+def generate_products_from_bio_only(business_info):
+    """Generate products from bio analysis when no posts are available"""
+    bio = business_info.get('bio', '')
+    business_name = business_info.get('name', '')
+    business_type = business_info.get('business_type', 'General Business')
+    
+    # Analyze bio for product keywords
+    bio_lower = bio.lower()
+    
+    products = []
+    
+    # Extract product hints from bio
+    product_keywords = []
+    if 'plant' in bio_lower or 'nursery' in bio_lower:
+        product_keywords = ['plants', 'pots', 'gardening supplies']
+    elif 'craft' in bio_lower or 'handmade' in bio_lower:
+        product_keywords = ['handcrafted items', 'custom designs', 'artisan pieces']
+    elif 'jewelry' in bio_lower or 'jewellery' in bio_lower:
+        product_keywords = ['earrings', 'necklaces', 'rings']
+    elif 'food' in bio_lower or 'cake' in bio_lower:
+        product_keywords = ['baked goods', 'custom cakes', 'desserts']
+    else:
+        # Try to extract nouns from bio
+        import re
+        words = re.findall(r'\b[a-zA-Z]{3,}\b', bio)
+        product_keywords = words[:3] if words else ['custom items']
+    
+    # Create products based on keywords
+    for i, keyword in enumerate(product_keywords[:5]):
+        product = {
+            "name": f"{business_name} {keyword.title()}",
+            "price": "Price on inquiry",
+            "description": f"Quality {keyword} from {business_name}. {bio[:50]}...",
+            "image": f"https://via.placeholder.com/300x300/cccccc/333333?text={keyword.replace(' ', '+')}"
+        }
+        products.append(product)
+    
+    # Ensure at least one product
+    if not products:
+        products = [{
+            "name": f"{business_name} Special",
+            "price": "Price on inquiry", 
+            "description": bio[:100] + "..." if len(bio) > 100 else bio,
+            "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Special+Item"
+        }]
+    
+    print(f"✅ Generated {len(products)} products from bio analysis")
+    return products
+
 def generate_mock_products():
     """Fallback mock products"""
     return [
@@ -2022,28 +2268,43 @@ def process_smart_business_analysis(username, phone_number):
             print(f"❌ Instagram data extraction failed: {instagram_error}")
             real_data = {'success': False}
         
-        if real_data.get('success'):
-            # Use real data
+        if real_data.get('success') and real_data.get('bio') and real_data.get('full_name'):
+            # Use ONLY real data - no fallbacks for names or bios
             business_info = {
-                'name': real_data.get('full_name') or username.replace('.', ' ').replace('_', ' ').title(),
-                'bio': real_data.get('bio') or f'Quality products from {username}',
+                'name': real_data.get('full_name'),
+                'bio': real_data.get('bio'),
                 'username': username,
                 'follower_count': real_data.get('followers', 0),
-                'following_count': 0,
-                'post_count': 0
+                'following_count': real_data.get('following', 0),
+                'post_count': real_data.get('post_count', 0),
+                'profile_pic_url': real_data.get('profile_pic_url', ''),
+                'posts': real_data.get('posts', [])
             }
-            print(f"✅ Using real Instagram data: {business_info['name']}")
+            print(f"✅ Using REAL Instagram data: {business_info['name']}")
+            print(f"📊 Real bio: {business_info['bio'][:200]}...")
+            print(f"📊 Real followers: {business_info['follower_count']:,}")
+            print(f"📊 Real posts extracted: {len(business_info['posts'])}")
         else:
-            # Fallback to username analysis
-            business_info = {
-                'name': username.replace('.', ' ').replace('_', ' ').title(),
-                'bio': f'Quality products from {username}',
-                'username': username,
-                'follower_count': 0,
-                'following_count': 0,
-                'post_count': 0
-            }
-            print(f"⚠️ Using fallback data: {business_info['name']}")
+            # REFUSE to proceed without real data
+            print(f"❌ FAILED TO EXTRACT REAL DATA - Cannot proceed without actual Instagram content")
+            
+            error_message = f"""❌ Unable to extract real data from @{username}
+
+This could be because:
+• The account is private
+• Instagram is blocking our requests  
+• The username doesn't exist
+
+Please try:
+• Making the account public
+• Checking the username spelling
+• Trying again in a few minutes
+
+We only create sites with REAL Instagram content - no mock data."""
+
+            send_whatsapp_message(phone_number, error_message)
+            processing_status[username] = 'failed'
+            return
         
         # Detect business type from real data
         business_type = detect_business_type(business_info)
@@ -2054,17 +2315,14 @@ def process_smart_business_analysis(username, phone_number):
         # Generate industry-appropriate colors
         colors = generate_business_colors(business_type)
         
-        # Generate smart products using AI
+        # Generate products using ONLY real scraped data
         try:
-            # Check if Vertex AI is available (fix the variable name issue)
-            vertex_available = 'VERTEX_AI_AVAILABLE' in globals() and VERTEX_AI_AVAILABLE
-            
-            if vertex_available:
-                print(f"🤖 Using Vertex AI for product generation")
-                products = analyze_business_with_vertex(username, business_info)
+            if business_info.get('posts') and len(business_info['posts']) > 0:
+                print(f"🎯 Generating products from {len(business_info['posts'])} REAL Instagram posts")
+                products = generate_products_from_real_posts(business_info)
             else:
-                print(f"📝 Using smart mock product generation")
-                products = generate_smart_mock_products(business_info['name'], business_info['bio'])
+                print(f"⚠️ No posts extracted - generating basic products from real bio data only")
+                products = generate_products_from_bio_only(business_info)
             
             print(f"🛍️ Generated {len(products)} products")
         except Exception as product_error:
