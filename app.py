@@ -3398,6 +3398,36 @@ def serve_catalog(username):
         </html>
         '''.format(username, PHONE_NUMBER_ID), 404
 
+@app.route('/test-extraction/<username>')
+def test_extraction(username):
+    """Test Instagram extraction directly"""
+    try:
+        print(f"🧪 TESTING EXTRACTION for @{username}")
+        result = get_real_instagram_data(username)
+        
+        if result.get('success'):
+            return {
+                'success': True,
+                'name': result.get('full_name', ''),
+                'bio': result.get('bio', ''),
+                'followers': result.get('followers', 0),
+                'posts': len(result.get('posts', [])),
+                'message': 'Extraction successful!'
+            }
+        else:
+            return {
+                'success': False,
+                'message': 'Extraction failed - all methods blocked',
+                'debug': str(result)
+            }
+            
+    except Exception as e:
+        return {
+            'success': False,
+            'error': str(e),
+            'message': 'Critical extraction error'
+        }
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     print(f"🔥 Starting WhatsApp Instagram Bot on port {port}...")
