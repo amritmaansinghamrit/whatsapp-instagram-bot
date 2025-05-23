@@ -558,159 +558,195 @@ def extract_from_html(html_or_soup, username):
 
 
 def get_real_instagram_data(username):
-    """Extract REAL Instagram data using ADVANCED PRODUCTION techniques from top GitHub repos"""
+    """Extract REAL Instagram data using proven working HTML scraping method"""
     import requests
     import re
-    import time
-    import random
+    import json
     from bs4 import BeautifulSoup
     
     try:
         print(f"🔍 EXTRACTING REAL DATA for @{username}")
         
-        # Method 1: CloudScraper with anti-bot bypass (production-grade)
-        print(f"🔄 Method 1: CloudScraper anti-bot bypass...")
+        # Method 1: HTML Meta Tag Scraping (PROVEN TO WORK LOCALLY)
+        print(f"🔄 Method 1: HTML Meta Tag Scraping...")
         try:
-            import cloudscraper
-            
-            scraper = cloudscraper.create_scraper(
-                browser={
-                    'browser': 'chrome',
-                    'platform': 'darwin',  # macOS
-                    'desktop': True
-                }
-            )
-            
-            mobile_headers = {
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Referer': 'https://www.google.com/',
-                'DNT': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'cross-site'
-            }
-            
-            # Try mobile domain first
-            response = scraper.get(f"https://m.instagram.com/{username}/", headers=mobile_headers, timeout=20)
-            print(f"📡 CloudScraper Mobile: {response.status_code}, Length: {len(response.text)}")
-            
-            if response.status_code == 200 and len(response.text) > 1000:
-                result = extract_from_html(response.text, username)
-                if result.get('success'):
-                    print(f"✅ SUCCESS with CloudScraper mobile!")
-                    return result
-                    
-            # Try main domain
-            response = scraper.get(f"https://www.instagram.com/{username}/", headers=mobile_headers, timeout=20)
-            print(f"📡 CloudScraper Main: {response.status_code}, Length: {len(response.text)}")
-            
-            if response.status_code == 200 and len(response.text) > 1000:
-                result = extract_from_html(response.text, username)
-                if result.get('success'):
-                    print(f"✅ SUCCESS with CloudScraper main!")
-                    return result
-                    
-        except Exception as cs_error:
-            print(f"⚠️ CloudScraper failed: {cs_error}")
-        
-        # Method 2: Requests-HTML with JavaScript rendering
-        print(f"🔄 Method 2: Requests-HTML with JS rendering...")
-        try:
-            from requests_html import HTMLSession
-            
-            session = HTMLSession()
-            
-            # Advanced headers for better stealth
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Upgrade-Insecure-Requests': '1'
-            })
-            
-            # Try mobile first
-            r = session.get(f"https://m.instagram.com/{username}/", timeout=20)
-            print(f"📡 Requests-HTML Mobile: {r.status_code}, Length: {len(r.text)}")
-            
-            if r.status_code == 200 and len(r.text) > 1000:
-                result = extract_from_html(r.text, username)
-                if result.get('success'):
-                    print(f"✅ SUCCESS with Requests-HTML mobile!")
-                    return result
-                    
-        except Exception as rh_error:
-            print(f"⚠️ Requests-HTML failed: {rh_error}")
-        
-        # Method 3: Advanced User Agent rotation with FakeUserAgent
-        print(f"🔄 Method 3: Advanced User Agent rotation...")
-        try:
-            from fake_useragent import UserAgent
-            ua = UserAgent()
-            
-            # Get random mobile user agents
-            mobile_agents = [
-                ua.safari,
-                ua.chrome,
-                'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
-                'Mozilla/5.0 (Linux; Android 13; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'
+            user_agents = [
+                'Mozilla/5.0 (iPhone; CPU iPhone OS 15_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.5 Mobile/15E148 Safari/604.1',
+                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15'
             ]
             
-            for i, user_agent in enumerate(mobile_agents[:3]):  # Try first 3
-                try:
-                    session = requests.Session()
+            for i, user_agent in enumerate(user_agents):
+                headers = {
+                    'User-Agent': user_agent,
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.5',
+                    'Accept-Encoding': 'gzip, deflate',
+                    'Connection': 'keep-alive',
+                    'Upgrade-Insecure-Requests': '1'
+                }
+                
+                print(f"🔄 HTML attempt {i+1} with: {user_agent.split()[0]}...")
+                response = requests.get(f"https://www.instagram.com/{username}/", headers=headers, timeout=20)
+                print(f"📡 Status: {response.status_code}, Length: {len(response.text)}")
+                
+                if response.status_code == 200 and len(response.text) > 1000:
+                    soup = BeautifulSoup(response.text, 'html.parser')
                     
-                    # Advanced anti-detection headers
+                    # Check meta tags
+                    og_title = soup.find('meta', property='og:title')
+                    og_description = soup.find('meta', property='og:description')
+                    og_image = soup.find('meta', property='og:image')
+                    
+                    title = og_title.get('content') if og_title else ''
+                    description = og_description.get('content') if og_description else ''
+                    profile_pic = og_image.get('content') if og_image else ''
+                    
+                    print(f"📊 Title: '{title}'")
+                    print(f"📊 Description: '{description[:100]}...'")
+                    print(f"📊 Profile Pic: {'Found' if profile_pic else 'Not found'}")
+                    
+                    if title and description and 'Instagram' in title:
+                        print(f"✅ Got real Instagram meta data!")
+                        
+                        # Extract data
+                        display_name = title.replace(' • Instagram photos and videos', '').replace(' (@', ' (')
+                        if '(' in display_name:
+                            display_name = display_name.split(' (')[0].strip()
+                        
+                        # Extract followers from description
+                        follower_match = re.search(r'(\d+(?:,\d+)*)\s+Followers', description)
+                        followers = int(follower_match.group(1).replace(',', '')) if follower_match else 0
+                        
+                        # Extract posts count
+                        posts_match = re.search(r'(\d+(?:,\d+)*)\s+Posts', description)
+                        post_count = int(posts_match.group(1).replace(',', '')) if posts_match else 0
+                        
+                        # Extract following count
+                        following_match = re.search(r'(\d+(?:,\d+)*)\s+Following', description)
+                        following = int(following_match.group(1).replace(',', '')) if following_match else 0
+                        
+                        # Extract bio from description (after the stats)
+                        bio = description
+                        # Remove the stats part to get bio
+                        stats_pattern = r'\d+(?:,\d+)*\s+(?:Followers|Following|Posts)[^-]*-\s*'
+                        bio = re.sub(stats_pattern, '', bio, flags=re.IGNORECASE)
+                        bio = bio.replace('See Instagram photos and videos from', '').strip()
+                        
+                        result = {
+                            'bio': bio,
+                            'full_name': display_name,
+                            'followers': followers,
+                            'following': following,
+                            'post_count': post_count,
+                            'profile_pic_url': profile_pic,
+                            'posts': [],
+                            'username': username,
+                            'success': True,
+                            'source': 'html_meta_scraping'
+                        }
+                        
+                        print(f"✅ SUCCESS with HTML Meta Scraping!")
+                        print(f"   Real Name: {display_name}")
+                        print(f"   Real Bio: {bio[:50]}...")
+                        print(f"   Real Followers: {followers:,}")
+                        print(f"   Real Posts: {post_count}")
+                        print(f"   Real Following: {following:,}")
+                        
+                        return result
+                    else:
+                        print(f"⚠️ No Instagram meta data found")
+                        print(f"   Title sample: {title[:50]}")
+                        print(f"   Description sample: {description[:50]}")
+                else:
+                    print(f"⚠️ Bad response - Status: {response.status_code}, Length: {len(response.text)}")
+                    
+        except Exception as html_error:
+            print(f"⚠️ HTML scraping failed: {html_error}")
+        
+        # Method 2: Instagram Graph API (Basic Display)
+        print(f"🔄 Method 2: Instagram Graph API approaches...")
+        try:
+            # Try Instagram's user info endpoint (sometimes accessible)
+            graph_endpoints = [
+                f"https://www.instagram.com/api/v1/users/web_profile_info/?username={username}",
+                f"https://i.instagram.com/api/v1/users/web_profile_info/?username={username}",
+                f"https://www.instagram.com/{username}/?__a=1&__d=dis"
+            ]
+            
+            for endpoint in graph_endpoints:
+                try:
+                    print(f"🔄 Trying Graph endpoint: {endpoint.split('/')[2]}")
+                    
                     headers = {
-                        'User-Agent': user_agent,
-                        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                        'Accept-Language': 'en-US,en;q=0.9,fr;q=0.8,de;q=0.7',
-                        'Accept-Encoding': 'gzip, deflate, br',
-                        'Connection': 'keep-alive',
-                        'Upgrade-Insecure-Requests': '1',
-                        'Sec-Fetch-Dest': 'document',
-                        'Sec-Fetch-Mode': 'navigate',
-                        'Sec-Fetch-Site': 'none',
-                        'Sec-Fetch-User': '?1',
-                        'Cache-Control': 'max-age=0',
-                        'DNT': '1'
+                        'User-Agent': 'Mozilla/5.0 (compatible; Instagram-Graph/1.0)',
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
                     
-                    # Random delay
-                    time.sleep(random.uniform(1, 3))
+                    response = requests.get(endpoint, headers=headers, timeout=15)
+                    print(f"📡 Graph Response: {response.status_code}")
                     
-                    # Try mobile domain
-                    response = session.get(f"https://m.instagram.com/{username}/", headers=headers, timeout=20)
-                    print(f"📡 FakeUA #{i+1} Mobile: {response.status_code}, Length: {len(response.text)}")
-                    
-                    if response.status_code == 200 and len(response.text) > 1000:
-                        result = extract_from_html(response.text, username)
-                        if result.get('success'):
-                            print(f"✅ SUCCESS with FakeUserAgent #{i+1}!")
-                            return result
+                    if response.status_code == 200:
+                        try:
+                            graph_data = response.json()
                             
-                except Exception as ua_error:
-                    print(f"⚠️ FakeUA attempt {i+1} failed: {ua_error}")
+                            # Navigate to user data
+                            user_data = None
+                            if 'data' in graph_data and 'user' in graph_data['data']:
+                                user_data = graph_data['data']['user']
+                            elif 'graphql' in graph_data and 'user' in graph_data['graphql']:
+                                user_data = graph_data['graphql']['user']
+                            elif 'user' in graph_data:
+                                user_data = graph_data['user']
+                            
+                            if user_data and user_data.get('username'):
+                                print(f"📊 Found user data in Graph API!")
+                                
+                                bio = user_data.get('biography', '')
+                                full_name = user_data.get('full_name', username)
+                                followers = user_data.get('edge_followed_by', {}).get('count', 0)
+                                following = user_data.get('edge_follow', {}).get('count', 0)
+                                post_count = user_data.get('edge_owner_to_timeline_media', {}).get('count', 0)
+                                profile_pic = user_data.get('profile_pic_url_hd') or user_data.get('profile_pic_url', '')
+                                
+                                result = {
+                                    'bio': bio,
+                                    'full_name': full_name,
+                                    'followers': followers,
+                                    'post_count': post_count,
+                                    'profile_pic_url': profile_pic,
+                                    'posts': [],
+                                    'username': username,
+                                    'success': True,
+                                    'source': 'instagram_graph_api'
+                                }
+                                
+                                print(f"✅ SUCCESS with Instagram Graph API!")
+                                print(f"   Real Name: {full_name}")
+                                print(f"   Real Bio: {bio[:50]}...")
+                                print(f"   Real Followers: {followers:,}")
+                                print(f"   Real Posts: {post_count}")
+                                
+                                return result
+                                
+                        except json.JSONDecodeError:
+                            print(f"⚠️ Graph endpoint returned non-JSON")
+                            continue
+                            
+                except Exception as endpoint_error:
+                    print(f"⚠️ Graph endpoint failed: {endpoint_error}")
                     continue
                     
-        except Exception as fake_ua_error:
-            print(f"⚠️ FakeUserAgent method failed: {fake_ua_error}")
+        except Exception as graph_error:
+            print(f"⚠️ Instagram Graph API failed: {graph_error}")
         
-        # Method 4: Session with Instagram browsing simulation
-        print(f"🔄 Method 4: Advanced session simulation...")
+        # Method 3: Enhanced HTML scraping with mobile user agent
+        print(f"🔄 Method 3: Enhanced mobile HTML scraping...")
         try:
-            session = requests.Session()
-            
-            # Set realistic mobile headers
-            session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
+            # Use mobile Instagram with very specific headers
+            mobile_headers = {
+                'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'Accept-Language': 'en-US,en;q=0.9',
                 'Accept-Encoding': 'gzip, deflate, br',
@@ -718,79 +754,30 @@ def get_real_instagram_data(username):
                 'Upgrade-Insecure-Requests': '1',
                 'Sec-Fetch-Dest': 'document',
                 'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'none',
-                'Cache-Control': 'max-age=0'
-            })
+                'Sec-Fetch-Site': 'none'
+            }
             
-            # Step 1: Visit Google first (realistic browsing)
-            print(f"🌐 Simulating realistic browsing pattern...")
-            google_response = session.get('https://www.google.com/', timeout=10)
-            print(f"📡 Google visit: {google_response.status_code}")
+            # Try mobile domain
+            mobile_url = f"https://m.instagram.com/{username}/"
+            print(f"🔄 Trying mobile Instagram: {mobile_url}")
             
-            # Random delay
-            time.sleep(random.uniform(2, 4))
+            response = requests.get(mobile_url, headers=mobile_headers, timeout=20)
+            print(f"📡 Mobile Response: {response.status_code}, Length: {len(response.text)}")
             
-            # Step 2: Visit Instagram main page
-            main_response = session.get('https://m.instagram.com/', timeout=15)
-            print(f"📡 Instagram main: {main_response.status_code}")
-            
-            # Random delay
-            time.sleep(random.uniform(2, 4))
-            
-            # Step 3: Visit profile with established session
-            profile_response = session.get(f"https://m.instagram.com/{username}/", timeout=20)
-            print(f"📡 Profile simulation: {profile_response.status_code}, Length: {len(profile_response.text)}")
-            
-            if profile_response.status_code == 200 and len(profile_response.text) > 1000:
-                result = extract_from_html(profile_response.text, username)
+            if response.status_code == 200 and len(response.text) > 1000:
+                result = extract_from_html(response.text, username)
                 if result.get('success'):
-                    print(f"✅ SUCCESS with session simulation!")
+                    print(f"✅ SUCCESS with mobile HTML scraping!")
+                    result['source'] = 'mobile_html_scraping'
                     return result
                     
-        except Exception as sim_error:
-            print(f"⚠️ Session simulation failed: {sim_error}")
+        except Exception as mobile_error:
+            print(f"⚠️ Mobile HTML scraping failed: {mobile_error}")
         
-        # Method 5: Multiple proxy services with rotation
-        print(f"🔄 Method 5: Advanced proxy rotation...")
+        # If all methods fail, return failure (no fake data generation)
+        print(f"❌ ALL REAL DATA EXTRACTION METHODS FAILED for @{username}")
+        print(f"❌ Instagram has blocked access from this server")
         
-        proxy_services = [
-            f"https://api.allorigins.win/get?url={requests.utils.quote(f'https://m.instagram.com/{username}/')}",
-            f"https://cors-anywhere.herokuapp.com/https://m.instagram.com/{username}/",
-            f"https://api.codetabs.com/v1/proxy/?quest={requests.utils.quote(f'https://m.instagram.com/{username}/')}"
-        ]
-        
-        for proxy_url in proxy_services:
-            try:
-                print(f"🔄 Proxy: {proxy_url.split('/')[2]}")
-                
-                headers = {
-                    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1'
-                }
-                
-                response = requests.get(proxy_url, headers=headers, timeout=25)
-                
-                if response.status_code == 200:
-                    if 'allorigins' in proxy_url or 'codetabs' in proxy_url:
-                        try:
-                            proxy_data = response.json()
-                            html_content = proxy_data.get('contents', '') or proxy_data.get('data', '')
-                        except:
-                            html_content = response.text
-                    else:
-                        html_content = response.text
-                        
-                    if html_content and len(html_content) > 1000:
-                        result = extract_from_html(html_content, username)
-                        if result.get('success'):
-                            print(f"✅ SUCCESS with proxy!")
-                            return result
-                            
-            except Exception as proxy_error:
-                print(f"⚠️ Proxy failed: {proxy_error}")
-                continue
-        
-        # If all advanced methods fail, return failure
-        print(f"❌ ALL ADVANCED EXTRACTION METHODS FAILED for @{username}")
         return {
             'bio': '',
             'full_name': username.replace('.', ' ').replace('_', ' ').title(),
@@ -799,7 +786,8 @@ def get_real_instagram_data(username):
             'profile_pic_url': '',
             'posts': [],
             'username': username,
-            'success': False
+            'success': False,
+            'source': 'extraction_failed'
         }
         
     except Exception as e:
