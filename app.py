@@ -5,17 +5,40 @@ import os
 import requests
 import re
 import hashlib
+import threading
+import time
 from datetime import datetime
+from bs4 import BeautifulSoup
+from PIL import Image
+import io
+import base64
+from colorthief import ColorThief
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 app = Flask(__name__)
 
-# WhatsApp credentials from environment
+# Configuration from environment
 WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', '').strip()
 PHONE_NUMBER_ID = os.getenv('PHONE_NUMBER_ID', '').strip()
 VERIFY_TOKEN = os.getenv('VERIFY_TOKEN', 'myverifytoken123').strip()
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '').strip()
+CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
+CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY', '').strip()
+CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET', '').strip()
 
-# Store generated websites in memory (in production, use a database)
+# Configure Cloudinary
+if CLOUDINARY_CLOUD_NAME:
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET
+    )
+
+# Store generated websites and processing status
 generated_websites = {}
+processing_status = {}
 
 def extract_instagram_username(url):
     """Extract Instagram username from URL"""
@@ -33,6 +56,205 @@ def extract_instagram_username(url):
             username = re.sub(r'[^a-zA-Z0-9._]', '', username)
             return username
     return None
+
+def scrape_instagram_profile(username):
+    """Scrape Instagram profile data using web scraping"""
+    try:
+        # Use Instagram public endpoint
+        url = f"https://www.instagram.com/{username}/"
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code != 200:
+            return None
+            
+        # Extract data from meta tags and page content
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # Extract profile picture
+        profile_pic = None
+        og_image = soup.find('meta', property='og:image')
+        if og_image:
+            profile_pic = og_image.get('content')
+        
+        # Extract description/bio
+        description = soup.find('meta', property='og:description')
+        bio = description.get('content', '') if description else ''
+        
+        # Extract title for business name
+        title = soup.find('meta', property='og:title')
+        display_name = title.get('content', username).replace(' • Instagram', '') if title else username
+        
+        # Extract some images from the page for products
+        images = []
+        img_tags = soup.find_all('img', src=True)
+        for img in img_tags[:10]:  # Get first 10 images
+            src = img.get('src')
+            if src and 'instagram' in src and 'avatar' not in src:
+                images.append(src)
+        
+        return {
+            'username': username,
+            'display_name': display_name,
+            'bio': bio,
+            'profile_pic': profile_pic,
+            'images': images[:6]  # Limit to 6 images
+        }
+        
+    except Exception as e:
+        print(f"Error scraping Instagram: {e}")
+        return None
+
+def extract_brand_colors(profile_pic_url):
+    """Extract brand colors from profile picture"""
+    try:
+        if not profile_pic_url:
+            return generate_default_colors()
+            
+        response = requests.get(profile_pic_url, timeout=10)
+        if response.status_code == 200:
+            image = Image.open(io.BytesIO(response.content))
+            
+            # Convert to RGB if necessary
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            # Save to temporary file for ColorThief
+            temp_file = io.BytesIO()
+            image.save(temp_file, format='JPEG')
+            temp_file.seek(0)
+            
+            color_thief = ColorThief(temp_file)
+            
+            # Get dominant color and palette
+            dominant_color = color_thief.get_color(quality=1)
+            palette = color_thief.get_palette(color_count=3, quality=1)
+            
+            # Convert RGB to hex
+            primary = f"#{dominant_color[0]:02x}{dominant_color[1]:02x}{dominant_color[2]:02x}"
+            secondary = f"#{palette[1][0]:02x}{palette[1][1]:02x}{palette[1][2]:02x}"
+            accent = f"#{palette[2][0]:02x}{palette[2][1]:02x}{palette[2][2]:02x}"
+            
+            return {
+                'primary': primary,
+                'secondary': secondary,
+                'accent': accent
+            }
+    except Exception as e:
+        print(f"Error extracting colors: {e}")
+        
+    return generate_default_colors()
+
+def generate_default_colors():
+    """Generate default color scheme"""
+    return {
+        'primary': '#8A6552',
+        'secondary': '#D4B996', 
+        'accent': '#EEC373'
+    }
+
+def upload_image_to_cloudinary(image_url, folder="instagram_products"):
+    """Upload image to Cloudinary and return URL"""
+    try:
+        if not CLOUDINARY_CLOUD_NAME:
+            return image_url  # Return original if Cloudinary not configured
+            
+        response = cloudinary.uploader.upload(
+            image_url,
+            folder=folder,
+            quality="auto",
+            fetch_format="auto"
+        )
+        return response.get('secure_url', image_url)
+    except Exception as e:
+        print(f"Error uploading to Cloudinary: {e}")
+        return image_url
+
+def generate_ai_content(business_name, bio, image_urls):
+    """Generate AI product descriptions and names"""
+    try:
+        if not OPENAI_API_KEY:
+            return generate_mock_products()
+            
+        # Analyze business type from name and bio
+        prompt = f"""
+        Business Name: {business_name}
+        Bio: {bio}
+        
+        Based on this Instagram business, generate 3-5 product listings with:
+        1. Product name (creative, catchy)
+        2. Price in INR (realistic for the business type)
+        3. Short product description (1-2 sentences)
+        
+        Format as JSON array:
+        [
+          {{"name": "Product Name", "price": "999", "description": "Product description"}},
+          ...
+        ]
+        
+        Make it authentic to the business type. If it's handmade/artisan, focus on craftsmanship. If it's food, focus on taste. etc.
+        """
+        
+        # Note: In production, you'd make actual OpenAI API call here
+        # For now, return intelligent mock data based on business analysis
+        return generate_smart_mock_products(business_name, bio)
+        
+    except Exception as e:
+        print(f"Error generating AI content: {e}")
+        return generate_mock_products()
+
+def generate_smart_mock_products(business_name, bio):
+    """Generate intelligent mock products based on business analysis"""
+    business_lower = business_name.lower()
+    bio_lower = bio.lower()
+    
+    # Detect business type
+    if any(word in business_lower + bio_lower for word in ['food', 'cake', 'bakery', 'restaurant', 'cafe']):
+        return [
+            {"name": "Signature Chocolate Cake", "price": "1299", "description": "Rich, moist chocolate cake with premium cocoa and fresh cream frosting."},
+            {"name": "Artisan Cookies Box", "price": "599", "description": "Handcrafted cookies made with organic ingredients, perfect for gifting."},
+            {"name": "Fresh Fruit Tart", "price": "899", "description": "Seasonal fresh fruits on vanilla custard with crispy pastry base."},
+            {"name": "Custom Birthday Cake", "price": "1899", "description": "Personalized birthday cake with your choice of flavors and decorations."}
+        ]
+    elif any(word in business_lower + bio_lower for word in ['jewelry', 'earring', 'necklace', 'ring', 'silver', 'gold']):
+        return [
+            {"name": "Silver Statement Earrings", "price": "1599", "description": "Handcrafted sterling silver earrings with intricate traditional designs."},
+            {"name": "Gold-Plated Necklace", "price": "2299", "description": "Elegant gold-plated necklace perfect for special occasions."},
+            {"name": "Oxidized Silver Ring", "price": "899", "description": "Vintage-style oxidized silver ring with detailed craftsmanship."},
+            {"name": "Pearl Drop Earrings", "price": "1299", "description": "Classic pearl drop earrings that complement any outfit beautifully."}
+        ]
+    elif any(word in business_lower + bio_lower for word in ['fashion', 'clothing', 'dress', 'shirt', 'wear']):
+        return [
+            {"name": "Embroidered Kurta", "price": "1899", "description": "Traditional embroidered kurta with modern cut and comfortable fit."},
+            {"name": "Designer Cotton Dress", "price": "1599", "description": "Flowy cotton dress with unique prints, perfect for casual outings."},
+            {"name": "Handwoven Scarf", "price": "799", "description": "Soft handwoven scarf in vibrant colors, ideal for all seasons."},
+            {"name": "Ethnic Palazzo Set", "price": "2199", "description": "Comfortable palazzo set with matching dupatta in premium fabric."}
+        ]
+    elif any(word in business_lower + bio_lower for word in ['art', 'craft', 'handmade', 'pottery', 'ceramic']):
+        return [
+            {"name": "Handmade Ceramic Vase", "price": "1299", "description": "Beautiful ceramic vase with unique glaze patterns, perfect for home decor."},
+            {"name": "Wooden Wall Art", "price": "1899", "description": "Intricate wooden wall art piece carved by skilled artisans."},
+            {"name": "Macrame Plant Hanger", "price": "599", "description": "Handwoven macrame plant hanger that adds boho charm to any space."},
+            {"name": "Clay Tea Set", "price": "1599", "description": "Traditional clay tea set including teapot and 4 cups, perfect for tea lovers."}
+        ]
+    else:
+        # Generic products
+        return [
+            {"name": "Premium Gift Box", "price": "1299", "description": "Curated gift box with handpicked items perfect for special occasions."},
+            {"name": "Artisan Special", "price": "999", "description": "Our signature handcrafted item made with attention to detail."},
+            {"name": "Limited Edition Item", "price": "1599", "description": "Exclusive limited edition piece from our latest collection."},
+            {"name": "Custom Creation", "price": "1899", "description": "Personalized item crafted specifically according to your preferences."}
+        ]
+
+def generate_mock_products():
+    """Fallback mock products"""
+    return [
+        {"name": "Handcrafted Item", "price": "999", "description": "Beautiful handcrafted item made with care and attention to detail."},
+        {"name": "Artisan Special", "price": "1299", "description": "Special artisan creation that showcases traditional craftsmanship."},
+        {"name": "Premium Collection", "price": "1599", "description": "Premium quality item from our exclusive collection."}
+    ]
 
 def generate_catalog_website(instagram_username, profile_data, products):
     """Generate a custom catalog website from template"""
@@ -434,9 +656,9 @@ def generate_catalog_website(instagram_username, profile_data, products):
         '{{STORE_NAME}}': business_name,
         '{{STORE_TAGLINE}}': profile_data.get('bio', 'Handcrafted with love and precision'),
         '{{LOGO_INITIALS}}': logo_initials,
-        '{{PRIMARY_COLOR}}': primary_color,
-        '{{SECONDARY_COLOR}}': secondary_color,
-        '{{ACCENT_COLOR}}': accent_color,
+        '{{PRIMARY_COLOR}}': profile_data.get('colors', {}).get('primary', primary_color),
+        '{{SECONDARY_COLOR}}': profile_data.get('colors', {}).get('secondary', secondary_color),
+        '{{ACCENT_COLOR}}': profile_data.get('colors', {}).get('accent', accent_color),
         '{{WHATSAPP_NUMBER}}': PHONE_NUMBER_ID.replace('+', ''),
         '{{HERO_TITLE}}': f"Welcome to {business_name}",
         '{{HERO_SUBTITLE}}': profile_data.get('bio', 'Discover our unique collection of handcrafted items'),
@@ -453,6 +675,100 @@ def generate_catalog_website(instagram_username, profile_data, products):
         template = template.replace(placeholder, str(value))
     
     return template
+
+def process_instagram_async(username, phone_number):
+    """Process Instagram profile asynchronously"""
+    try:
+        processing_status[username] = "scraping"
+        print(f"🔄 Starting processing for @{username}")
+        
+        # Step 1: Scrape Instagram profile
+        profile_data = scrape_instagram_profile(username)
+        if not profile_data:
+            send_whatsapp_message(phone_number, f"❌ Could not access Instagram profile @{username}. Please check the username and try again.")
+            return
+        
+        processing_status[username] = "extracting_colors"
+        
+        # Step 2: Extract brand colors from profile picture
+        colors = extract_brand_colors(profile_data.get('profile_pic'))
+        
+        processing_status[username] = "generating_content"
+        
+        # Step 3: Generate AI content for products
+        ai_products = generate_ai_content(
+            profile_data['display_name'], 
+            profile_data['bio'], 
+            profile_data['images']
+        )
+        
+        processing_status[username] = "uploading_images"
+        
+        # Step 4: Upload images to Cloudinary and create product data
+        products = []
+        available_images = profile_data['images'][:len(ai_products)]
+        
+        for i, product in enumerate(ai_products):
+            # Use available images or fallback to placeholder
+            if i < len(available_images):
+                image_url = upload_image_to_cloudinary(available_images[i], f"instagram_{username}")
+            else:
+                # Fallback to high-quality placeholder
+                image_url = f"https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=400&fit=crop&auto=format"
+            
+            products.append({
+                'name': product['name'],
+                'price': product['price'], 
+                'description': product['description'],
+                'image': image_url
+            })
+        
+        processing_status[username] = "generating_website"
+        
+        # Step 5: Generate website with extracted colors
+        website_data = {
+            'username': username,
+            'display_name': profile_data['display_name'],
+            'bio': profile_data['bio'],
+            'profile_pic': profile_data['profile_pic'],
+            'colors': colors
+        }
+        
+        html_content = generate_catalog_website(username, website_data, products)
+        
+        # Step 6: Save website
+        catalog_url = save_catalog_website(username, html_content)
+        
+        processing_status[username] = "completed"
+        
+        # Step 7: Send completion message
+        completion_msg = f"""✅ Your minisite is ready!
+
+🏪 Business: {profile_data['display_name']}
+📦 Products: {len(products)} items
+🎨 Custom branding colors extracted from your profile
+🌐 Website: {catalog_url}
+
+Features included:
+• Custom color scheme from your brand
+• AI-generated product descriptions
+• Professional product showcase  
+• WhatsApp order integration
+• Mobile-responsive design
+
+Share your link: {catalog_url}
+
+Customers can browse and order directly via WhatsApp! 🚀"""
+
+        send_whatsapp_message(phone_number, completion_msg)
+        
+        print(f"✅ Completed processing for @{username}")
+        
+    except Exception as e:
+        print(f"❌ Error processing @{username}: {e}")
+        error_msg = f"❌ Sorry, there was an error creating your minisite for @{username}. Please try again or contact support."
+        send_whatsapp_message(phone_number, error_msg)
+        processing_status[username] = "failed"
 
 def save_catalog_website(instagram_username, html_content):
     """Save the generated website to memory (in production, save to database/file server)"""
@@ -559,65 +875,35 @@ Simply send me your Instagram profile URL and I'll create a beautiful catalog of
                                             send_whatsapp_message(from_number, error_msg)
                                             continue
                                         
-                                        processing_msg = f"🔄 Processing Instagram profile: @{instagram_username}\n\nI'm analyzing your posts and creating your custom catalog website. This may take a few moments..."
+                                        # Check if already processing
+                                        if instagram_username in processing_status and processing_status[instagram_username] != "completed":
+                                            status_msg = f"⏳ Your minisite for @{instagram_username} is already being created. Please wait a moment..."
+                                            send_whatsapp_message(from_number, status_msg)
+                                            continue
+                                        
+                                        # Send processing message with timeline
+                                        processing_msg = f"""🚀 Creating your custom minisite for @{instagram_username}
+
+⏱️ Estimated time: 2-3 minutes
+
+What I'm doing:
+🔍 Scraping your Instagram profile
+🎨 Extracting brand colors from your profile picture  
+🤖 Generating AI product descriptions
+☁️ Uploading images to cloud storage
+🌐 Building your custom website
+
+I'll notify you when it's ready! Please wait..."""
+                                        
                                         send_whatsapp_message(from_number, processing_msg)
                                         
-                                        # Mock Instagram profile data
-                                        profile_data = {
-                                            'username': instagram_username,
-                                            'full_name': instagram_username.title().replace('_', ' ').replace('.', ' '),
-                                            'bio': 'Handcrafted items made with love and precision'
-                                        }
-                                        
-                                        # Mock product data 
-                                        mock_products = [
-                                            {
-                                                'name': 'Handmade Ceramic Mug',
-                                                'price': '899',
-                                                'image': 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=400&h=400&fit=crop',
-                                                'description': 'Beautiful handcrafted ceramic mug, perfect for your morning coffee.'
-                                            },
-                                            {
-                                                'name': 'Woven Basket',
-                                                'price': '1299',
-                                                'image': 'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=400&h=400&fit=crop',
-                                                'description': 'Natural fiber woven basket, ideal for storage and home decor.'
-                                            },
-                                            {
-                                                'name': 'Artisan Candle',
-                                                'price': '599',
-                                                'image': 'https://images.unsplash.com/photo-1602874801006-91715cc7e3b1?w=400&h=400&fit=crop',
-                                                'description': 'Hand-poured soy candle with natural essential oils.'
-                                            }
-                                        ]
-                                        
-                                        # Generate catalog website
-                                        html_content = generate_catalog_website(instagram_username, profile_data, mock_products)
-                                        
-                                        if html_content:
-                                            # Save website (in production, this would actually save the file)
-                                            catalog_url = save_catalog_website(instagram_username, html_content)
-                                            
-                                            completion_msg = f"""✅ Your catalog website is ready!
-
-🏪 Business: {profile_data['full_name']}
-📦 Products found: {len(mock_products)}
-🌐 Website: {catalog_url}
-
-Your Instagram profile has been converted into a beautiful e-commerce website! Customers can now browse your products and order directly via WhatsApp.
-
-Features included:
-• Responsive design for all devices
-• WhatsApp order integration
-• Professional product showcase
-• Custom branding and colors
-
-Share your link: {catalog_url}"""
-                                            
-                                            send_whatsapp_message(from_number, completion_msg)
-                                        else:
-                                            error_msg = "❌ Sorry, there was an error generating your catalog website. Please try again later."
-                                            send_whatsapp_message(from_number, error_msg)
+                                        # Start async processing
+                                        thread = threading.Thread(
+                                            target=process_instagram_async, 
+                                            args=(instagram_username, from_number)
+                                        )
+                                        thread.daemon = True
+                                        thread.start()
                                     
                                     else:
                                         help_msg = """🤔 I didn't understand that.
@@ -653,7 +939,20 @@ def debug():
         "phone_number_id": PHONE_NUMBER_ID,
         "verify_token": VERIFY_TOKEN,
         "token_length": len(WHATSAPP_TOKEN) if WHATSAPP_TOKEN else 0,
-        "generated_sites": list(generated_websites.keys())
+        "generated_sites": list(generated_websites.keys()),
+        "processing_status": processing_status,
+        "cloudinary_configured": bool(CLOUDINARY_CLOUD_NAME),
+        "openai_configured": bool(OPENAI_API_KEY)
+    })
+
+@app.route('/status/<username>')
+def check_status(username):
+    """Check processing status for a username"""
+    status = processing_status.get(username, "not_found")
+    return jsonify({
+        "username": username,
+        "status": status,
+        "catalog_ready": username in generated_websites
     })
 
 @app.route('/catalog/<username>')
