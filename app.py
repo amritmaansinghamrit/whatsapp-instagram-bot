@@ -1460,19 +1460,24 @@ def process_smart_business_analysis(username, phone_number):
         print(f"🧠 Starting smart business analysis for @{username}")
         
         # Get real Instagram data first
-        real_data = get_real_instagram_data(username)
+        try:
+            real_data = get_real_instagram_data(username)
+            print(f"📊 Real data result: {real_data}")
+        except Exception as instagram_error:
+            print(f"❌ Instagram data extraction failed: {instagram_error}")
+            real_data = {'success': False}
         
-        if real_data['success']:
+        if real_data.get('success'):
             # Use real data
             business_info = {
-                'name': real_data['full_name'] or username.replace('.', ' ').replace('_', ' ').title(),
-                'bio': real_data['bio'] or f'Quality products from {username}',
+                'name': real_data.get('full_name') or username.replace('.', ' ').replace('_', ' ').title(),
+                'bio': real_data.get('bio') or f'Quality products from {username}',
                 'username': username,
-                'follower_count': real_data['followers'],
+                'follower_count': real_data.get('followers', 0),
                 'following_count': 0,
                 'post_count': 0
             }
-            print(f"✅ Using real Instagram data!")
+            print(f"✅ Using real Instagram data: {business_info['name']}")
         else:
             # Fallback to username analysis
             business_info = {
@@ -1483,7 +1488,7 @@ def process_smart_business_analysis(username, phone_number):
                 'following_count': 0,
                 'post_count': 0
             }
-            print(f"⚠️ Using fallback data")
+            print(f"⚠️ Using fallback data: {business_info['name']}")
         
         # Detect business type from real data
         business_type = detect_business_type(business_info)
@@ -1495,10 +1500,32 @@ def process_smart_business_analysis(username, phone_number):
         colors = generate_business_colors(business_type)
         
         # Generate smart products using AI
-        if VERTEX_AI_AVAILABLE:
-            products = analyze_business_with_vertex(username, business_info)
-        else:
-            products = generate_smart_mock_products(business_info['name'], business_info['bio'])
+        try:
+            if VERTEX_AI_AVAILABLE:
+                print(f"🤖 Using Vertex AI for product generation")
+                products = analyze_business_with_vertex(username, business_info)
+            else:
+                print(f"📝 Using fallback product generation")
+                products = generate_smart_mock_products(business_info['name'], business_info['bio'])
+            
+            print(f"🛍️ Generated {len(products)} products")
+        except Exception as product_error:
+            print(f"❌ Product generation failed: {product_error}")
+            # Fallback to simple products
+            products = [
+                {
+                    'name': f'{business_info["name"]} Special',
+                    'price': '₹299',
+                    'description': 'Premium quality product from our collection',
+                    'image': 'https://via.placeholder.com/300x300/cccccc/333333?text=Product'
+                },
+                {
+                    'name': f'{business_info["name"]} Premium',
+                    'price': '₹499',
+                    'description': 'Top-tier product with excellent quality',
+                    'image': 'https://via.placeholder.com/300x300/cccccc/333333?text=Product'
+                }
+            ]
         
         # Create profile data structure
         profile_data = {
@@ -1512,8 +1539,30 @@ def process_smart_business_analysis(username, phone_number):
         }
         
         # Generate website
-        html_content = generate_catalog_website(username, profile_data, products)
-        save_catalog_website(username, html_content)
+        try:
+            print(f"🌐 Generating website for {username}")
+            html_content = generate_catalog_website(username, profile_data, products)
+            print(f"📄 Website generated, length: {len(html_content)} characters")
+            
+            catalog_url = save_catalog_website(username, html_content)
+            print(f"💾 Website saved at: {catalog_url}")
+        except Exception as website_error:
+            print(f"❌ Website generation failed: {website_error}")
+            # Create a simple fallback website
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head><title>{business_info['name']}</title></head>
+            <body>
+                <h1>{business_info['name']}</h1>
+                <p>{business_info['bio']}</p>
+                <div>
+                    {''.join([f'<div><h3>{p["name"]}</h3><p>{p["price"]}</p></div>' for p in products])}
+                </div>
+            </body>
+            </html>
+            """
+            catalog_url = save_catalog_website(username, html_content)
         
         # Store results
         generated_websites[username] = {
