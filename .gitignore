@@ -60,3 +60,21 @@ dist/
 
 # Air live reloading
 tmp/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Google Cloud sensitive files
+google-service-account.json
+*-service-account.json
+
+# Test files
+test_token.py
