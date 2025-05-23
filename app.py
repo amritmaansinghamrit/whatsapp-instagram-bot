@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-from flask import Flask, request, jsonify, render_template_string
+from flask import Flask, request, jsonify, render_template_string, redirect, session, url_for
 import json
 import os
 import requests
@@ -27,8 +27,12 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+import subprocess
+import tempfile
+import shutil
 
 app = Flask(__name__)
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Configuration from environment
 WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN', '').strip()
@@ -39,6 +43,11 @@ GOOGLE_LOCATION = os.getenv('GOOGLE_LOCATION', 'us-central1').strip()
 CLOUDINARY_CLOUD_NAME = os.getenv('CLOUDINARY_CLOUD_NAME', '').strip()
 CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY', '').strip()
 CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET', '').strip()
+
+# Instagram Graph API Configuration
+INSTAGRAM_APP_ID = os.getenv('INSTAGRAM_APP_ID', '').strip()
+INSTAGRAM_APP_SECRET = os.getenv('INSTAGRAM_APP_SECRET', '').strip()
+INSTAGRAM_REDIRECT_URI = os.getenv('INSTAGRAM_REDIRECT_URI', 'https://whatsapp-instagram-bot.onrender.com/instagram/callback').strip()
 
 # Google Cloud Authentication Setup
 def setup_google_cloud_auth():
@@ -106,6 +115,124 @@ else:
 generated_websites = {}
 processing_status = {}
 
+# Store Instagram access tokens (in production, use a proper database)
+instagram_tokens = {}
+
+def get_instagram_auth_url(username):
+    """Generate Instagram OAuth authorization URL for Instagram Business Login"""
+    if not INSTAGRAM_APP_ID:
+        return None
+    
+    # Instagram Basic Display API OAuth URL (direct Instagram login)
+    auth_url = f"https://api.instagram.com/oauth/authorize?client_id={INSTAGRAM_APP_ID}&redirect_uri={INSTAGRAM_REDIRECT_URI}&scope=user_profile,user_media&response_type=code&state={username}"
+    return auth_url
+
+def exchange_code_for_token(code):
+    """Exchange authorization code for access token"""
+    if not INSTAGRAM_APP_ID or not INSTAGRAM_APP_SECRET:
+        return None
+    
+    token_url = "https://api.instagram.com/oauth/access_token"
+    data = {
+        'client_id': INSTAGRAM_APP_ID,
+        'client_secret': INSTAGRAM_APP_SECRET,
+        'grant_type': 'authorization_code',
+        'redirect_uri': INSTAGRAM_REDIRECT_URI,
+        'code': code
+    }
+    
+    try:
+        response = requests.post(token_url, data=data)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            print(f"Token exchange failed: {response.text}")
+            return None
+    except Exception as e:
+        print(f"Error exchanging code for token: {e}")
+        return None
+
+def get_long_lived_token(short_token):
+    """Convert short-lived token to long-lived token"""
+    if not INSTAGRAM_APP_SECRET:
+        return short_token
+    
+    exchange_url = f"https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret={INSTAGRAM_APP_SECRET}&access_token={short_token}"
+    
+    try:
+        response = requests.get(exchange_url)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get('access_token', short_token)
+        else:
+            print(f"Long-lived token exchange failed: {response.text}")
+            return short_token
+    except Exception as e:
+        print(f"Error getting long-lived token: {e}")
+        return short_token
+
+def fetch_instagram_profile_api(access_token):
+    """Fetch Instagram profile data using Basic Display API (Instagram Business Login)"""
+    try:
+        # Get user profile using Instagram Basic Display API
+        profile_url = f"https://graph.instagram.com/me?fields=id,username,media_count&access_token={access_token}"
+        profile_response = requests.get(profile_url)
+        
+        if profile_response.status_code != 200:
+            print(f"Profile fetch failed: {profile_response.text}")
+            return None
+        
+        profile_data = profile_response.json()
+        
+        # Get user media using Instagram Basic Display API
+        media_url = f"https://graph.instagram.com/me/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp&access_token={access_token}"
+        media_response = requests.get(media_url)
+        
+        if media_response.status_code != 200:
+            print(f"Media fetch failed: {media_response.text}")
+            return profile_data
+        
+        media_data = media_response.json()
+        posts = []
+        
+        for item in media_data.get('data', []):
+            post = {
+                'id': item.get('id'),
+                'image': item.get('media_url') or item.get('thumbnail_url'),
+                'caption': item.get('caption', ''),
+                'timestamp': item.get('timestamp'),
+                'likes': 0,  # Not available in Basic Display API
+                'comments': 0,  # Not available in Basic Display API
+                'media_type': item.get('media_type', 'IMAGE')
+            }
+            posts.append(post)
+        
+        profile_data['posts'] = posts
+        profile_data['post_count'] = len(posts)
+        profile_data['display_name'] = profile_data.get('username', '').title()
+        profile_data['bio'] = ''  # Not available in Basic Display API
+        
+        return profile_data
+        
+    except Exception as e:
+        print(f"Error fetching Instagram data via Basic Display API: {e}")
+        return None
+
+def fetch_instagram_comments(media_id, access_token, limit=10):
+    """Fetch comments for a specific Instagram post"""
+    try:
+        comments_url = f"https://graph.instagram.com/{media_id}/comments?fields=id,text,timestamp,username&limit={limit}&access_token={access_token}"
+        response = requests.get(comments_url)
+        
+        if response.status_code == 200:
+            return response.json().get('data', [])
+        else:
+            print(f"Comments fetch failed: {response.text}")
+            return []
+    except Exception as e:
+        print(f"Error fetching comments: {e}")
+        return []
+
 def extract_instagram_username(url):
     """Extract Instagram username from URL"""
     patterns = [
@@ -124,8 +251,20 @@ def extract_instagram_username(url):
     return None
 
 def scrape_instagram_profile_advanced(username):
-    """Advanced Instagram scraping with real post content"""
+    """Advanced Instagram scraping with multiple fallback methods"""
     try:
+        print(f"🔄 Starting Instagram scraping for {username}")
+        
+        # Method 1: Try instagram-scraper library first
+        print("📚 Trying instagram-scraper library...")
+        profile_data = scrape_instagram_with_library(username)
+        if profile_data and len(profile_data.get('posts', [])) > 0:
+            print(f"✅ Instagram-scraper successful: {len(profile_data['posts'])} posts")
+            return profile_data
+        
+        print("⚠️ Instagram-scraper failed, trying Selenium...")
+        
+        # Method 2: Fallback to Selenium scraping
         # Setup Chrome driver for Instagram scraping
         chrome_options = Options()
         chrome_options.add_argument('--headless')
@@ -306,6 +445,193 @@ def scrape_instagram_simple(username):
         
     except Exception as e:
         print(f"Error in simple scraping: {e}")
+        return None
+
+def get_real_instagram_data(username):
+    """Get real Instagram bio, name, and follower data"""
+    try:
+        url = f'https://www.instagram.com/{username}/'
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Connection': 'keep-alive',
+        }
+        
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            html_content = response.text
+            
+            # Extract bio
+            bio_patterns = [
+                r'"biography":"([^"]*?)"',
+                r'"biography": "([^"]*?)"',
+                r'biography":"([^"]*?)"'
+            ]
+            
+            # Extract full name
+            name_patterns = [
+                r'"full_name":"([^"]*?)"',
+                r'"full_name": "([^"]*?)"', 
+                r'full_name":"([^"]*?)"'
+            ]
+            
+            # Extract follower count
+            follower_patterns = [
+                r'"edge_followed_by":\{"count":(\d+)\}',
+                r'edge_followed_by":\{"count":(\d+)\}'
+            ]
+            
+            # Search for bio
+            bio = ''
+            for pattern in bio_patterns:
+                match = re.search(pattern, html_content)
+                if match:
+                    bio = match.group(1)
+                    # Decode Unicode escapes safely
+                    try:
+                        bio = bio.encode('latin1').decode('unicode_escape')
+                    except:
+                        # If Unicode decoding fails, just clean up what we have
+                        bio = bio.replace('\\n', ' ').replace('\\', '')
+                    bio = bio.strip()
+                    break
+            
+            # Search for full name  
+            full_name = ''
+            for pattern in name_patterns:
+                match = re.search(pattern, html_content)
+                if match:
+                    full_name = match.group(1)
+                    try:
+                        full_name = full_name.encode('latin1').decode('unicode_escape')
+                    except:
+                        full_name = full_name.replace('\\', '')
+                    full_name = full_name.strip()
+                    break
+            
+            # Search for follower count
+            followers = 0
+            for pattern in follower_patterns:
+                match = re.search(pattern, html_content)
+                if match:
+                    followers = int(match.group(1))
+                    break
+            
+            print(f"✅ Real Instagram data for @{username}:")
+            print(f"   Name: {full_name}")
+            print(f"   Bio: {bio}")
+            print(f"   Followers: {followers}")
+            
+            return {
+                'bio': bio,
+                'full_name': full_name,
+                'followers': followers,
+                'username': username,
+                'success': True
+            }
+        
+        return {'success': False}
+        
+    except Exception as e:
+        print(f"❌ Error getting real Instagram data: {e}")
+        return {'success': False}
+
+def scrape_instagram_with_library(username, max_posts=10):
+    """Scrape Instagram using instagram-scraper library"""
+    try:
+        print(f"🔍 Using instagram-scraper library for {username}")
+        
+        # Create temporary directory for downloads
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Run instagram-scraper command
+            cmd = [
+                'instagram-scraper',
+                username,
+                '--maximum', str(max_posts),
+                '--destination', temp_dir,
+                '--retain-username',
+                '--media-metadata',
+                '--comments',
+                '--no-interactive'
+            ]
+            
+            try:
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                
+                if result.returncode != 0:
+                    print(f"Instagram-scraper failed: {result.stderr}")
+                    return None
+                
+                # Parse the downloaded data
+                user_dir = os.path.join(temp_dir, username)
+                if not os.path.exists(user_dir):
+                    print(f"No data downloaded for {username}")
+                    return None
+                
+                profile_data = {
+                    'username': username,
+                    'display_name': username.title(),
+                    'bio': '',
+                    'profile_pic_url': '',
+                    'posts': [],
+                    'post_count': 0
+                }
+                
+                # Look for JSON metadata files
+                posts = []
+                for file in os.listdir(user_dir):
+                    if file.endswith('.json'):
+                        try:
+                            with open(os.path.join(user_dir, file), 'r') as f:
+                                post_data = json.load(f)
+                                
+                            # Extract post information
+                            post = {
+                                'image': post_data.get('display_url', ''),
+                                'caption': post_data.get('edge_media_to_caption', {}).get('edges', [{}])[0].get('node', {}).get('text', ''),
+                                'timestamp': post_data.get('taken_at_timestamp', ''),
+                                'likes': post_data.get('edge_liked_by', {}).get('count', 0),
+                                'comments': post_data.get('edge_media_to_comment', {}).get('count', 0)
+                            }
+                            posts.append(post)
+                            
+                        except Exception as e:
+                            print(f"Error parsing JSON file {file}: {e}")
+                            continue
+                
+                # Also look for downloaded images
+                image_files = [f for f in os.listdir(user_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+                
+                # If we have fewer posts from JSON, add image files
+                if len(posts) < len(image_files):
+                    for i, img_file in enumerate(image_files[:max_posts]):
+                        if i >= len(posts):
+                            posts.append({
+                                'image': os.path.join(user_dir, img_file),
+                                'caption': f'Post {i+1}',
+                                'timestamp': '',
+                                'likes': 0,
+                                'comments': 0
+                            })
+                
+                profile_data['posts'] = posts[:max_posts]
+                profile_data['post_count'] = len(posts[:max_posts])
+                
+                print(f"✅ Instagram-scraper found {len(posts)} posts for {username}")
+                return profile_data
+                
+            except subprocess.TimeoutExpired:
+                print(f"Instagram-scraper timed out for {username}")
+                return None
+            except Exception as e:
+                print(f"Error running instagram-scraper: {e}")
+                return None
+                
+    except Exception as e:
+        print(f"Error in instagram-scraper method: {e}")
         return None
 
 def extract_brand_colors(profile_pic_url):
@@ -1127,6 +1453,255 @@ def generate_catalog_website(instagram_username, profile_data, products):
     
     return template
 
+def process_smart_business_analysis(username, phone_number):
+    """Process business using real Instagram data + smart AI analysis"""
+    try:
+        processing_status[username] = "analyzing"
+        print(f"🧠 Starting smart business analysis for @{username}")
+        
+        # Get real Instagram data first
+        real_data = get_real_instagram_data(username)
+        
+        if real_data['success']:
+            # Use real data
+            business_info = {
+                'name': real_data['full_name'] or username.replace('.', ' ').replace('_', ' ').title(),
+                'bio': real_data['bio'] or f'Quality products from {username}',
+                'username': username,
+                'follower_count': real_data['followers'],
+                'following_count': 0,
+                'post_count': 0
+            }
+            print(f"✅ Using real Instagram data!")
+        else:
+            # Fallback to username analysis
+            business_info = {
+                'name': username.replace('.', ' ').replace('_', ' ').title(),
+                'bio': f'Quality products from {username}',
+                'username': username,
+                'follower_count': 0,
+                'following_count': 0,
+                'post_count': 0
+            }
+            print(f"⚠️ Using fallback data")
+        
+        # Detect business type from real data
+        business_type = detect_business_type(business_info)
+        business_info['business_type'] = business_type
+        
+        print(f"🎯 Detected business type: {business_type}")
+        
+        # Generate industry-appropriate colors
+        colors = generate_business_colors(business_type)
+        
+        # Generate smart products using AI
+        if VERTEX_AI_AVAILABLE:
+            products = analyze_business_with_vertex(username, business_info)
+        else:
+            products = generate_smart_mock_products(business_info['name'], business_info['bio'])
+        
+        # Create profile data structure
+        profile_data = {
+            'username': username,
+            'display_name': business_info['name'],
+            'bio': business_info['bio'],
+            'profile_pic_url': '',
+            'posts': [],
+            'post_count': 0,
+            'source': 'smart_analysis'
+        }
+        
+        # Generate website
+        html_content = generate_catalog_website(username, profile_data, products)
+        save_catalog_website(username, html_content)
+        
+        # Store results
+        generated_websites[username] = {
+            'html': html_content,
+            'products': products,
+            'profile': profile_data,
+            'timestamp': datetime.now(),
+            'colors': colors,
+            'source': 'smart_analysis'
+        }
+        
+        processing_status[username] = 'completed'
+        
+        # Send completion message
+        catalog_url = f"https://whatsapp-instagram-bot.onrender.com/catalog/{username}"
+        completion_message = f"""🎉 Your website is ready!
+
+📱 {catalog_url}
+
+✨ {len(products)} products added
+🛍️ Share this link with your customers!
+
+Want updates? Send me your Instagram again anytime!"""
+        
+        send_whatsapp_message(phone_number, completion_message)
+        print(f"✅ Smart analysis completed for {username}")
+        
+    except Exception as e:
+        print(f"❌ Error in smart business analysis: {e}")
+        processing_status[username] = 'failed'
+        error_msg = f"😅 Oops! Something went wrong with @{username}. Try sending it again!"
+        send_whatsapp_message(phone_number, error_msg)
+
+def detect_business_type(business_info):
+    """Detect business type from real Instagram data"""
+    bio_lower = business_info['bio'].lower()
+    name_lower = business_info['name'].lower()
+    username_lower = business_info['username'].lower()
+    
+    # Combine all text for analysis
+    all_text = f"{bio_lower} {name_lower} {username_lower}"
+    
+    if any(word in all_text for word in ['crochet', 'handmade', 'macrame', 'crafts', 'gifts', 'accessories', 'aesthetic', 'bouquet']):
+        return 'Handmade Crafts & Gifts'
+    elif any(word in all_text for word in ['plant', 'nursery', 'garden', 'flower', 'green', 'lily']):
+        return 'Plant Nursery'
+    elif any(word in all_text for word in ['fashion', 'boutique', 'clothing', 'style', 'wear', 'dress']):
+        return 'Fashion & Clothing'
+    elif any(word in all_text for word in ['food', 'cafe', 'restaurant', 'kitchen', 'bakery', 'cook']):
+        return 'Food & Beverage'
+    elif any(word in all_text for word in ['beauty', 'cosmetic', 'makeup', 'skincare', 'salon', 'spa']):
+        return 'Beauty & Cosmetics'
+    elif any(word in all_text for word in ['tech', 'software', 'digital', 'app', 'web', 'code']):
+        return 'Technology'
+    elif any(word in all_text for word in ['art', 'design', 'creative', 'studio', 'gallery']):
+        return 'Art & Design'
+    elif any(word in all_text for word in ['jewelry', 'jewellery', 'rings', 'necklace', 'earrings']):
+        return 'Jewelry'
+    elif any(word in all_text for word in ['home', 'decor', 'furniture', 'interior']):
+        return 'Home & Decor'
+    else:
+        return 'General Business'
+
+def generate_business_colors(business_type):
+    """Generate appropriate colors based on detected business type"""
+    
+    # Color schemes for different business types
+    if business_type == 'Handmade Crafts & Gifts':
+        return {
+            'primary': '#E91E63',     # Pink
+            'secondary': '#FCE4EC',   # Light Pink
+            'accent': '#AD1457'       # Dark Pink
+        }
+    elif business_type == 'Plant Nursery':
+        return {
+            'primary': '#228B22',     # Forest Green
+            'secondary': '#90EE90',   # Light Green
+            'accent': '#32CD32'       # Lime Green
+        }
+    elif business_type == 'Fashion & Clothing':
+        return {
+            'primary': '#FF1493',     # Deep Pink
+            'secondary': '#FFB6C1',   # Light Pink
+            'accent': '#C71585'       # Medium Violet Red
+        }
+    elif business_type == 'Food & Beverage':
+        return {
+            'primary': '#D2691E',     # Chocolate
+            'secondary': '#F4A460',   # Sandy Brown
+            'accent': '#FF6347'       # Tomato
+        }
+    elif business_type == 'Beauty & Cosmetics':
+        return {
+            'primary': '#DA70D6',     # Orchid
+            'secondary': '#DDA0DD',   # Plum
+            'accent': '#BA55D3'       # Medium Orchid
+        }
+    elif business_type == 'Technology':
+        return {
+            'primary': '#4169E1',     # Royal Blue
+            'secondary': '#87CEEB',   # Sky Blue
+            'accent': '#1E90FF'       # Dodger Blue
+        }
+    elif business_type == 'Art & Design':
+        return {
+            'primary': '#9C27B0',     # Purple
+            'secondary': '#E1BEE7',   # Light Purple
+            'accent': '#6A1B9A'       # Dark Purple
+        }
+    elif business_type == 'Jewelry':
+        return {
+            'primary': '#FFD700',     # Gold
+            'secondary': '#FFF8DC',   # Cornsilk
+            'accent': '#B8860B'       # Dark Goldenrod
+        }
+    elif business_type == 'Home & Decor':
+        return {
+            'primary': '#8B4513',     # Saddle Brown
+            'secondary': '#DEB887',   # Burlywood
+            'accent': '#A0522D'       # Sienna
+        }
+    else:
+        # Default professional colors
+        return {
+            'primary': '#2C3E50',     # Dark Blue Grey
+            'secondary': '#3498DB',   # Blue
+            'accent': '#E74C3C'       # Red
+        }
+
+def analyze_business_with_vertex(username, business_info):
+    """Use Vertex AI to analyze business and generate relevant products"""
+    try:
+        if not VERTEX_AI_AVAILABLE:
+            return generate_smart_mock_products(business_info['name'], business_info['bio'])
+        
+        # Create business analysis prompt
+        prompt = f"""
+        Analyze this business and generate 6-8 relevant products:
+        
+        Business Name: {business_info['name']}
+        Instagram Handle: @{username}
+        
+        Based on the business name and handle, determine:
+        1. What type of business this is
+        2. What products they likely sell
+        3. Generate specific product names with descriptions
+        
+        Create realistic products with:
+        - Product name
+        - Price range appropriate for the business type
+        - Brief description (2-3 sentences)
+        - Product category
+        
+        Format as JSON array with objects containing: name, price, description, category
+        """
+        
+        model = GenerativeModel("gemini-pro")
+        response = model.generate_content(prompt)
+        
+        if response and response.text:
+            try:
+                # Try to extract JSON from response
+                import re
+                json_match = re.search(r'\[.*\]', response.text, re.DOTALL)
+                if json_match:
+                    products_data = json.loads(json_match.group())
+                    
+                    products = []
+                    for item in products_data:
+                        product = {
+                            'name': item.get('name', 'Product'),
+                            'price': item.get('price', '$25'),
+                            'description': item.get('description', 'Quality product'),
+                            'image': 'https://via.placeholder.com/300x300/cccccc/333333?text=Product'
+                        }
+                        products.append(product)
+                    
+                    return products[:8]  # Limit to 8 products
+            except:
+                pass
+        
+        # Fallback to smart mock products
+        return generate_smart_mock_products(business_info['name'], business_info['bio'])
+        
+    except Exception as e:
+        print(f"Error in Vertex AI business analysis: {e}")
+        return generate_smart_mock_products(business_info['name'], business_info['bio'])
+
 def process_instagram_async(username, phone_number):
     """Process Instagram profile asynchronously with advanced AI analysis"""
     try:
@@ -1282,6 +1857,138 @@ def send_whatsapp_message(to, message):
         print(f"❌ Error sending message: {e}")
         return False
 
+@app.route('/instagram/auth/<username>')
+def instagram_auth(username):
+    """Initiate Instagram OAuth flow"""
+    auth_url = get_instagram_auth_url(username)
+    if auth_url:
+        return redirect(auth_url)
+    else:
+        return jsonify({'error': 'Instagram app not configured'}), 500
+
+@app.route('/instagram/callback')
+def instagram_callback():
+    """Handle Instagram OAuth callback"""
+    code = request.args.get('code')
+    state = request.args.get('state')  # This contains the username
+    error = request.args.get('error')
+    
+    if error:
+        return f"Instagram authorization failed: {error}", 400
+    
+    if not code or not state:
+        return "Missing authorization code or state", 400
+    
+    # Exchange code for token
+    token_data = exchange_code_for_token(code)
+    if not token_data:
+        return "Failed to exchange code for token", 500
+    
+    access_token = token_data.get('access_token')
+    if access_token:
+        # Convert to long-lived token
+        long_lived_token = get_long_lived_token(access_token)
+        
+        # Store token for this username
+        instagram_tokens[state] = long_lived_token
+        
+        # Now process the Instagram account with the API
+        threading.Thread(
+            target=process_instagram_with_api,
+            args=(state, long_lived_token)
+        ).start()
+        
+        return f"""
+        <html>
+        <body>
+            <h2>Instagram Authorization Successful!</h2>
+            <p>Processing {state}'s Instagram account...</p>
+            <p>You will receive a WhatsApp message when your catalog is ready.</p>
+            <script>
+                setTimeout(() => window.close(), 3000);
+            </script>
+        </body>
+        </html>
+        """
+    else:
+        return "Failed to get access token", 500
+
+def process_instagram_with_api(username, access_token):
+    """Process Instagram account using the Graph API"""
+    try:
+        print(f"🔄 Processing {username} with Instagram API...")
+        
+        # Fetch real Instagram data using API
+        profile_data = fetch_instagram_profile_api(access_token)
+        if not profile_data:
+            print(f"❌ Failed to fetch Instagram data for {username}")
+            return
+        
+        print(f"✅ Fetched {len(profile_data.get('posts', []))} posts from {username}")
+        
+        # Enhance posts with comments for review data
+        posts_with_comments = []
+        for post in profile_data.get('posts', [])[:10]:  # Limit to first 10 posts
+            comments = fetch_instagram_comments(post['id'], access_token, limit=5)
+            post['comments'] = comments
+            posts_with_comments.append(post)
+        
+        profile_data['posts'] = posts_with_comments
+        
+        # Continue with existing processing pipeline
+        business_info = {
+            'name': profile_data.get('display_name', username.title()),
+            'bio': profile_data.get('bio', ''),
+            'username': username,
+            'follower_count': 0,  # Not available in basic API
+            'following_count': 0,  # Not available in basic API
+            'post_count': profile_data.get('media_count', len(posts_with_comments))
+        }
+        
+        # Extract colors from profile picture if available
+        profile_pic_url = None
+        if posts_with_comments:
+            profile_pic_url = posts_with_comments[0].get('image')
+        
+        if profile_pic_url:
+            colors = extract_brand_colors(profile_pic_url)
+        else:
+            colors = generate_default_colors()
+        
+        # Analyze posts with Vertex AI
+        if VERTEX_AI_AVAILABLE:
+            products = analyze_instagram_posts_with_vertex(posts_with_comments, business_info)
+        else:
+            products = generate_smart_mock_products(business_info['name'], business_info['bio'])
+        
+        # Generate website
+        html_content = generate_catalog_website(username, profile_data, products)
+        save_catalog_website(username, html_content)
+        
+        # Store in global dict
+        generated_websites[username] = {
+            'html': html_content,
+            'products': products,
+            'profile': profile_data,
+            'timestamp': datetime.now(),
+            'colors': colors,
+            'source': 'instagram_api'
+        }
+        
+        processing_status[username] = 'completed'
+        
+        # Send completion message via WhatsApp
+        catalog_url = f"https://whatsapp-instagram-bot.onrender.com/catalog/{username}"
+        completion_message = f"🎉 Your Instagram catalog is ready!\n\n📱 View: {catalog_url}\n\n✨ Generated from real Instagram content using official API"
+        
+        # Note: We'd need the phone number to send the message
+        # This would require storing the phone number during the auth process
+        print(f"✅ Catalog ready for {username}: {catalog_url}")
+        
+    except Exception as e:
+        print(f"❌ Error processing {username} with API: {e}")
+        processing_status[username] = 'failed'
+
 @app.route('/webhook', methods=['GET', 'POST'])
 def webhook():
     if request.method == 'GET':
@@ -1327,13 +2034,11 @@ def webhook():
                                     # Bot logic
                                     if 'hi' in text_body or 'hello' in text_body:
                                         print(f"🎯 Detected greeting: '{text_body}'")
-                                        welcome_msg = """🎉 Welcome to In-House Bot!
+                                        welcome_msg = """🎉 Hi! I create free product catalogs for your business!
 
-I help creative entrepreneurs turn their Instagram profiles into professional product catalogs.
+Just send me your Instagram username (like @yourbusiness) and I'll make you a beautiful website in 30 seconds! 
 
-Simply send me your Instagram profile URL and I'll create a beautiful catalog of your products automatically!
-
-📸 Send me your Instagram URL to get started!"""
+Try it now! 📸"""
                                         send_whatsapp_message(from_number, welcome_msg)
                                     
                                     elif 'instagram.com' in text_body or '@' in text_body:
@@ -1343,38 +2048,28 @@ Simply send me your Instagram profile URL and I'll create a beautiful catalog of
                                         instagram_username = extract_instagram_username(text_body)
                                         
                                         if not instagram_username:
-                                            error_msg = "❌ Could not extract Instagram username from the URL. Please send a valid Instagram profile URL like:\n\n• https://instagram.com/yourbusiness\n• @yourbusiness"
+                                            error_msg = "🤔 I need your Instagram username! \n\nTry: @yourbusiness or https://instagram.com/yourbusiness"
                                             send_whatsapp_message(from_number, error_msg)
                                             continue
                                         
                                         # Check if already processing
                                         if instagram_username in processing_status and processing_status[instagram_username] != "completed":
-                                            status_msg = f"⏳ Your minisite for @{instagram_username} is already being created. Please wait a moment..."
+                                            status_msg = f"⏳ Already working on @{instagram_username}! Almost done..."
                                             send_whatsapp_message(from_number, status_msg)
                                             continue
                                         
-                                        # Send processing message with timeline
-                                        processing_msg = f"""🚀 Creating your AI-powered minisite for @{instagram_username}
+                                        # Start smart analysis immediately - no complex choices
+                                        processing_msg = f"""🚀 Creating your catalog for @{instagram_username}...
 
-⏱️ Estimated time: 2-3 minutes
+⏱️ Just 30 seconds! 
 
-What I'm doing:
-🔍 Advanced Instagram profile scraping with real posts
-🎨 Extracting brand colors from your profile picture  
-🤖 Analyzing your posts with Google Vertex AI for product detection
-📸 Processing Instagram images to identify products
-💡 Generating smart product descriptions based on visual analysis
-☁️ Optimizing and uploading images to cloud storage
-🌐 Building your dynamic custom website
-
-Using cutting-edge AI to create a truly personalized experience!
-I'll notify you when it's ready! Please wait..."""
+Building your beautiful website now! ✨"""
                                         
                                         send_whatsapp_message(from_number, processing_msg)
                                         
-                                        # Start async processing
+                                        # Start smart processing immediately
                                         thread = threading.Thread(
-                                            target=process_instagram_async, 
+                                            target=process_smart_business_analysis, 
                                             args=(instagram_username, from_number)
                                         )
                                         thread.daemon = True
@@ -1383,11 +2078,9 @@ I'll notify you when it's ready! Please wait..."""
                                     else:
                                         help_msg = """🤔 I didn't understand that.
 
-Send me:
-• "hi" or "hello" to begin
-• Your Instagram profile URL to create a catalog
+Send me your Instagram username (like @yourbusiness) and I'll create your free catalog! 
 
-How can I help you today?"""
+Try: @thepeacelily.in"""
                                         send_whatsapp_message(from_number, help_msg)
             
         except Exception as e:
