@@ -2211,7 +2211,13 @@ def reset_status(username):
 def serve_catalog(username):
     """Serve generated catalog websites"""
     if username in generated_websites:
-        return generated_websites[username]
+        # Return only the HTML content, not the entire JSON object
+        website_data = generated_websites[username]
+        if isinstance(website_data, dict) and 'html' in website_data:
+            return website_data['html']
+        else:
+            # If it's just HTML string (old format)
+            return website_data
     else:
         return '''
         <html>
