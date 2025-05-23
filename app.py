@@ -1517,71 +1517,71 @@ def generate_smart_mock_products(business_name, bio):
     # Generate products based on detected business type
     if detected_type == 'plants_nursery':
         return [
-            {"name": "Peace Lily Plant", "price": "899", "description": "Beautiful indoor peace lily plant that purifies air and brings tranquility to your space."},
-            {"name": "Monstera Deliciosa", "price": "1299", "description": "Stunning large-leaf monstera plant, perfect for modern home decor."},
-            {"name": "Snake Plant Collection", "price": "699", "description": "Set of 3 snake plants in decorative pots, ideal for beginners."},
-            {"name": "Ceramic Plant Pot Set", "price": "599", "description": "Handcrafted ceramic pots in various sizes, perfect for your green friends."},
-            {"name": "Plant Care Kit", "price": "399", "description": "Complete plant care kit with fertilizer, tools, and care instructions."}
+            {"name": "Peace Lily Plant", "price": "899", "description": "Beautiful indoor peace lily plant that purifies air and brings tranquility to your space.", "image": "https://via.placeholder.com/300x300/4CAF50/FFFFFF?text=Peace+Lily"},
+            {"name": "Monstera Deliciosa", "price": "1299", "description": "Stunning large-leaf monstera plant, perfect for modern home decor.", "image": "https://via.placeholder.com/300x300/4CAF50/FFFFFF?text=Monstera"},
+            {"name": "Snake Plant Collection", "price": "699", "description": "Set of 3 snake plants in decorative pots, ideal for beginners.", "image": "https://via.placeholder.com/300x300/4CAF50/FFFFFF?text=Snake+Plant"},
+            {"name": "Ceramic Plant Pot Set", "price": "599", "description": "Handcrafted ceramic pots in various sizes, perfect for your green friends.", "image": "https://via.placeholder.com/300x300/4CAF50/FFFFFF?text=Ceramic+Pots"},
+            {"name": "Plant Care Kit", "price": "399", "description": "Complete plant care kit with fertilizer, tools, and care instructions.", "image": "https://via.placeholder.com/300x300/4CAF50/FFFFFF?text=Care+Kit"}
         ]
     elif detected_type == 'food_bakery':
         return [
-            {"name": "Signature Chocolate Cake", "price": "1299", "description": "Rich, moist chocolate cake with premium cocoa and fresh cream frosting."},
-            {"name": "Artisan Cookies Box", "price": "599", "description": "Handcrafted cookies made with organic ingredients, perfect for gifting."},
-            {"name": "Fresh Fruit Tart", "price": "899", "description": "Seasonal fresh fruits on vanilla custard with crispy pastry base."},
-            {"name": "Custom Birthday Cake", "price": "1899", "description": "Personalized birthday cake with your choice of flavors and decorations."}
+            {"name": "Signature Chocolate Cake", "price": "1299", "description": "Rich, moist chocolate cake with premium cocoa and fresh cream frosting.", "image": "https://via.placeholder.com/300x300/8D4004/FFFFFF?text=Cake"},
+            {"name": "Artisan Cookies Box", "price": "599", "description": "Handcrafted cookies made with organic ingredients, perfect for gifting.", "image": "https://via.placeholder.com/300x300/8D4004/FFFFFF?text=Cookies"},
+            {"name": "Fresh Fruit Tart", "price": "899", "description": "Seasonal fresh fruits on vanilla custard with crispy pastry base.", "image": "https://via.placeholder.com/300x300/8D4004/FFFFFF?text=Tart"},
+            {"name": "Custom Birthday Cake", "price": "1899", "description": "Personalized birthday cake with your choice of flavors and decorations.", "image": "https://via.placeholder.com/300x300/8D4004/FFFFFF?text=Birthday+Cake"}
         ]
     elif detected_type == 'jewelry':
         return [
-            {"name": "Silver Statement Earrings", "price": "1599", "description": "Handcrafted sterling silver earrings with intricate traditional designs."},
-            {"name": "Gold-Plated Necklace", "price": "2299", "description": "Elegant gold-plated necklace perfect for special occasions."},
-            {"name": "Oxidized Silver Ring", "price": "899", "description": "Vintage-style oxidized silver ring with detailed craftsmanship."},
-            {"name": "Pearl Drop Earrings", "price": "1299", "description": "Classic pearl drop earrings that complement any outfit beautifully."}
+            {"name": "Silver Statement Earrings", "price": "1599", "description": "Handcrafted sterling silver earrings with intricate traditional designs.", "image": "https://via.placeholder.com/300x300/C0C0C0/000000?text=Earrings"},
+            {"name": "Gold-Plated Necklace", "price": "2299", "description": "Elegant gold-plated necklace perfect for special occasions.", "image": "https://via.placeholder.com/300x300/FFD700/000000?text=Necklace"},
+            {"name": "Oxidized Silver Ring", "price": "899", "description": "Vintage-style oxidized silver ring with detailed craftsmanship.", "image": "https://via.placeholder.com/300x300/C0C0C0/000000?text=Ring"},
+            {"name": "Pearl Drop Earrings", "price": "1299", "description": "Classic pearl drop earrings that complement any outfit beautifully.", "image": "https://via.placeholder.com/300x300/F8F8FF/000000?text=Pearl+Earrings"}
         ]
     elif detected_type == 'fashion':
         return [
-            {"name": "Designer Kurti", "price": "1599", "description": "Elegant designer kurti with modern prints and comfortable fit."},
-            {"name": "Cotton Palazzo Set", "price": "1299", "description": "Comfortable cotton palazzo with matching dupatta in trendy colors."},
-            {"name": "Silk Scarf Collection", "price": "799", "description": "Premium silk scarves in vibrant patterns, perfect for any season."},
-            {"name": "Ethnic Jewelry Set", "price": "999", "description": "Traditional jewelry set that complements ethnic wear beautifully."}
+            {"name": "Designer Kurti", "price": "1599", "description": "Elegant designer kurti with modern prints and comfortable fit.", "image": "https://via.placeholder.com/300x300/FF69B4/FFFFFF?text=Kurti"},
+            {"name": "Cotton Palazzo Set", "price": "1299", "description": "Comfortable cotton palazzo with matching dupatta in trendy colors.", "image": "https://via.placeholder.com/300x300/FF69B4/FFFFFF?text=Palazzo"},
+            {"name": "Silk Scarf Collection", "price": "799", "description": "Premium silk scarves in vibrant patterns, perfect for any season.", "image": "https://via.placeholder.com/300x300/FF69B4/FFFFFF?text=Scarf"},
+            {"name": "Ethnic Jewelry Set", "price": "999", "description": "Traditional jewelry set that complements ethnic wear beautifully.", "image": "https://via.placeholder.com/300x300/FF69B4/FFFFFF?text=Jewelry+Set"}
         ]
     elif detected_type == 'arts_crafts':
         return [
-            {"name": "Handmade Ceramic Vase", "price": "1299", "description": "Beautiful ceramic vase with unique glaze patterns, perfect for home decor."},
-            {"name": "Wooden Wall Art", "price": "1899", "description": "Intricate wooden wall art piece carved by skilled artisans."},
-            {"name": "Macrame Plant Hanger", "price": "599", "description": "Handwoven macrame plant hanger that adds boho charm to any space."},
-            {"name": "Clay Tea Set", "price": "1599", "description": "Traditional clay tea set including teapot and 4 cups, perfect for tea lovers."}
+            {"name": "Handmade Ceramic Vase", "price": "1299", "description": "Beautiful ceramic vase with unique glaze patterns, perfect for home decor.", "image": "https://via.placeholder.com/300x300/8B4513/FFFFFF?text=Ceramic+Vase"},
+            {"name": "Wooden Wall Art", "price": "1899", "description": "Intricate wooden wall art piece carved by skilled artisans.", "image": "https://via.placeholder.com/300x300/8B4513/FFFFFF?text=Wall+Art"},
+            {"name": "Macrame Plant Hanger", "price": "599", "description": "Handwoven macrame plant hanger that adds boho charm to any space.", "image": "https://via.placeholder.com/300x300/8B4513/FFFFFF?text=Macrame"},
+            {"name": "Clay Tea Set", "price": "1599", "description": "Traditional clay tea set including teapot and 4 cups, perfect for tea lovers.", "image": "https://via.placeholder.com/300x300/8B4513/FFFFFF?text=Tea+Set"}
         ]
     elif detected_type == 'beauty_wellness':
         return [
-            {"name": "Organic Face Care Set", "price": "1299", "description": "Complete organic skincare set with cleanser, toner, and moisturizer."},
-            {"name": "Herbal Hair Oil", "price": "599", "description": "Natural herbal hair oil for nourishment and healthy growth."},
-            {"name": "Aromatherapy Candles", "price": "799", "description": "Set of relaxing aromatherapy candles for stress relief and ambiance."},
-            {"name": "Natural Body Scrub", "price": "899", "description": "Exfoliating body scrub made with natural ingredients for smooth skin."}
+            {"name": "Organic Face Care Set", "price": "1299", "description": "Complete organic skincare set with cleanser, toner, and moisturizer.", "image": "https://via.placeholder.com/300x300/FFC0CB/000000?text=Face+Care"},
+            {"name": "Herbal Hair Oil", "price": "599", "description": "Natural herbal hair oil for nourishment and healthy growth.", "image": "https://via.placeholder.com/300x300/FFC0CB/000000?text=Hair+Oil"},
+            {"name": "Aromatherapy Candles", "price": "799", "description": "Set of relaxing aromatherapy candles for stress relief and ambiance.", "image": "https://via.placeholder.com/300x300/FFC0CB/000000?text=Candles"},
+            {"name": "Natural Body Scrub", "price": "899", "description": "Exfoliating body scrub made with natural ingredients for smooth skin.", "image": "https://via.placeholder.com/300x300/FFC0CB/000000?text=Body+Scrub"}
         ]
     elif detected_type == 'home_decor':
         return [
-            {"name": "Decorative Wall Mirror", "price": "1599", "description": "Elegant decorative mirror that enhances any room's aesthetic."},
-            {"name": "Cushion Cover Set", "price": "899", "description": "Set of 4 designer cushion covers in matching patterns and colors."},
-            {"name": "Table Lamp", "price": "1299", "description": "Modern table lamp with adjustable brightness, perfect for reading."},
-            {"name": "Wall Art Canvas", "price": "999", "description": "Beautiful canvas art piece that adds personality to your walls."}
+            {"name": "Decorative Wall Mirror", "price": "1599", "description": "Elegant decorative mirror that enhances any room's aesthetic.", "image": "https://via.placeholder.com/300x300/DEB887/000000?text=Mirror"},
+            {"name": "Cushion Cover Set", "price": "899", "description": "Set of 4 designer cushion covers in matching patterns and colors.", "image": "https://via.placeholder.com/300x300/DEB887/000000?text=Cushions"},
+            {"name": "Table Lamp", "price": "1299", "description": "Modern table lamp with adjustable brightness, perfect for reading.", "image": "https://via.placeholder.com/300x300/DEB887/000000?text=Lamp"},
+            {"name": "Wall Art Canvas", "price": "999", "description": "Beautiful canvas art piece that adds personality to your walls.", "image": "https://via.placeholder.com/300x300/DEB887/000000?text=Canvas"}
         ]
     else:
         # Enhanced generic products with business name integration
         business_adj = "Premium" if "premium" in combined_text else "Handcrafted" if any(word in combined_text for word in ["handmade", "craft", "artisan"]) else "Exclusive"
         
         return [
-            {"name": f"{business_adj} Collection Item", "price": "1299", "description": f"Signature {business_adj.lower()} item from {business_name}, made with attention to detail."},
-            {"name": f"{business_name} Special", "price": "999", "description": f"Our most popular item, carefully crafted to meet our customers' expectations."},
-            {"name": f"Limited Edition {business_adj}", "price": "1599", "description": f"Exclusive limited edition piece from our latest {business_name} collection."},
-            {"name": f"Custom {business_adj} Creation", "price": "1899", "description": f"Personalized item from {business_name}, crafted specifically according to your preferences."}
+            {"name": f"{business_adj} Collection Item", "price": "1299", "description": f"Signature {business_adj.lower()} item from {business_name}, made with attention to detail.", "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Collection"},
+            {"name": f"{business_name} Special", "price": "999", "description": f"Our most popular item, carefully crafted to meet our customers\' expectations.", "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Special"},
+            {"name": f"Limited Edition {business_adj}", "price": "1599", "description": f"Exclusive limited edition piece from our latest {business_name} collection.", "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Limited+Edition"},
+            {"name": f"Custom {business_adj} Creation", "price": "1899", "description": f"Personalized item from {business_name}, crafted specifically according to your preferences.", "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Custom"}
         ]
 
 def generate_mock_products():
     """Fallback mock products"""
     return [
-        {"name": "Handcrafted Item", "price": "999", "description": "Beautiful handcrafted item made with care and attention to detail."},
-        {"name": "Artisan Special", "price": "1299", "description": "Special artisan creation that showcases traditional craftsmanship."},
-        {"name": "Premium Collection", "price": "1599", "description": "Premium quality item from our exclusive collection."}
+        {"name": "Handcrafted Item", "price": "999", "description": "Beautiful handcrafted item made with care and attention to detail.", "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Handcrafted+Item"},
+        {"name": "Artisan Special", "price": "1299", "description": "Special artisan creation that showcases traditional craftsmanship.", "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Artisan+Special"},
+        {"name": "Premium Collection", "price": "1599", "description": "Premium quality item from our exclusive collection.", "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Premium+Collection"}
     ]
 
 def generate_catalog_website(instagram_username, profile_data, products):
@@ -1962,9 +1962,12 @@ def generate_catalog_website(instagram_username, profile_data, products):
         whatsapp_message = f"Hi! I'm interested in {product['name']} (₹{product['price']}) from your Instagram catalog."
         whatsapp_url = f"https://wa.me/{PHONE_NUMBER_ID.replace('+', '')}?text={requests.utils.quote(whatsapp_message)}"
         
+        # Get product image with fallback
+        product_image = product.get('image', 'https://via.placeholder.com/300x300/cccccc/333333?text=Product')
+        
         products_html += f"""
         <div class="product-card">
-            <img src="{product['image']}" alt="{product['name']}" class="product-image">
+            <img src="{product_image}" alt="{product['name']}" class="product-image">
             <div class="product-info">
                 <h3 class="product-name">{product['name']}</h3>
                 <div class="product-price">₹{product['price']}</div>
