@@ -121,6 +121,15 @@ def home():
         "status": "active"
     })
 
+@app.route('/debug')
+def debug():
+    return jsonify({
+        "whatsapp_token_set": bool(WHATSAPP_TOKEN),
+        "phone_number_id": PHONE_NUMBER_ID,
+        "verify_token": VERIFY_TOKEN,
+        "token_length": len(WHATSAPP_TOKEN) if WHATSAPP_TOKEN else 0
+    })
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     print(f"🔥 Starting WhatsApp Instagram Bot on port {port}...")
