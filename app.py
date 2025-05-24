@@ -2335,6 +2335,892 @@ def generate_mock_products():
         {"name": "Premium Collection", "price": "1599", "description": "Premium quality item from our exclusive collection.", "image": "https://via.placeholder.com/300x300/cccccc/333333?text=Premium+Collection"}
     ]
 
+def generate_enhanced_shopping_website(instagram_username, profile_data, products):
+    """Generate enhanced shopping website with cart functionality and dynamic colors"""
+    
+    # Determine business type and set appropriate color scheme
+    business_type = profile_data.get('detected_business_type', 'lifestyle')
+    username_lower = instagram_username.lower()
+    
+    # Enhanced color schemes based on business type
+    color_schemes = {
+        'craft': {
+            'primary': '#8B4513',      # Saddle Brown
+            'secondary': '#D2691E',    # Chocolate  
+            'accent': '#F4A460',       # Sandy Brown
+            'background': '#FFF8DC',   # Cornsilk
+            'card': '#FFFFFF'
+        },
+        'plant': {
+            'primary': '#228B22',      # Forest Green
+            'secondary': '#32CD32',    # Lime Green
+            'accent': '#ADFF2F',       # Green Yellow
+            'background': '#F0FFF0',   # Honeydew
+            'card': '#FFFFFF'
+        },
+        'food': {
+            'primary': '#FF6347',      # Tomato
+            'secondary': '#FF4500',    # Orange Red
+            'accent': '#FFD700',       # Gold
+            'background': '#FFF8DC',   # Cornsilk
+            'card': '#FFFFFF'
+        },
+        'fashion': {
+            'primary': '#8A2BE2',      # Blue Violet
+            'secondary': '#9370DB',    # Medium Purple
+            'accent': '#DDA0DD',       # Plum
+            'background': '#F8F8FF',   # Ghost White
+            'card': '#FFFFFF'
+        },
+        'beauty': {
+            'primary': '#FF69B4',      # Hot Pink
+            'secondary': '#FFB6C1',    # Light Pink
+            'accent': '#FFC0CB',       # Pink
+            'background': '#FFF0F5',   # Lavender Blush
+            'card': '#FFFFFF'
+        },
+        'lifestyle': {
+            'primary': '#4682B4',      # Steel Blue
+            'secondary': '#87CEEB',    # Sky Blue
+            'accent': '#E0E0E0',       # Light Gray
+            'background': '#F5F5F5',   # White Smoke
+            'card': '#FFFFFF'
+        }
+    }
+    
+    colors = color_schemes.get(business_type, color_schemes['lifestyle'])
+    
+    # Extract phone number for thepeacelily.in specifically
+    whatsapp_number = '918218668337'  # Default for thepeacelily.in
+    if 'thepeacelily' in username_lower or 'peace' in username_lower:
+        whatsapp_number = '918218668337'
+    
+    template = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{profile_data.get('full_name', instagram_username)} - Online Store</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {{
+            --primary-color: {colors['primary']};
+            --secondary-color: {colors['secondary']};
+            --accent-color: {colors['accent']};
+            --background-color: {colors['background']};
+            --card-color: {colors['card']};
+            --text-dark: #2c2c2c;
+            --text-light: #ffffff;
+            --text-gray: #666666;
+            --whatsapp-color: #25D366;
+            --success-color: #10B981;
+            --warning-color: #F59E0B;
+            --error-color: #EF4444;
+        }}
+        
+        * {{
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }}
+        
+        body {{
+            font-family: 'Inter', sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-dark);
+            line-height: 1.6;
+        }}
+        
+        .container {{
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }}
+        
+        /* Header with Cart */
+        header {{
+            background: var(--card-color);
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }}
+        
+        .header-content {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px 0;
+        }}
+        
+        .logo {{
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        
+        .logo-icon {{
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-light);
+            font-size: 20px;
+            font-weight: 700;
+            font-family: 'Playfair Display', serif;
+        }}
+        
+        .logo-text {{
+            font-family: 'Playfair Display', serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--text-dark);
+        }}
+        
+        .header-actions {{
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }}
+        
+        .cart-button {{
+            position: relative;
+            background: var(--primary-color);
+            color: var(--text-light);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 15px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }}
+        
+        .cart-button:hover {{
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }}
+        
+        .cart-count {{
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: var(--error-color);
+            color: var(--text-light);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+        }}
+        
+        /* Hero Section */
+        .hero {{
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: var(--text-light);
+            padding: 80px 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }}
+        
+        .hero::before {{
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grain" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="50" cy="50" r="1" fill="rgba(255,255,255,0.1)"/></pattern></defs><rect width="100" height="100" fill="url(%23grain)"/></svg>');
+            opacity: 0.3;
+        }}
+        
+        .hero-content {{
+            position: relative;
+            z-index: 2;
+        }}
+        
+        .hero-title {{
+            font-family: 'Playfair Display', serif;
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }}
+        
+        .hero-subtitle {{
+            font-size: 20px;
+            margin-bottom: 30px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            opacity: 0.95;
+        }}
+        
+        .hero-stats {{
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 40px;
+        }}
+        
+        .stat-item {{
+            text-align: center;
+        }}
+        
+        .stat-number {{
+            font-size: 28px;
+            font-weight: 700;
+            display: block;
+        }}
+        
+        .stat-label {{
+            font-size: 14px;
+            opacity: 0.8;
+        }}
+        
+        /* Products Section */
+        .products-section {{
+            padding: 80px 0;
+        }}
+        
+        .section-title {{
+            font-family: 'Playfair Display', serif;
+            font-size: 36px;
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--text-dark);
+        }}
+        
+        .section-subtitle {{
+            text-align: center;
+            color: var(--text-gray);
+            margin-bottom: 60px;
+            font-size: 18px;
+        }}
+        
+        .products-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }}
+        
+        .product-card {{
+            background: var(--card-color);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+            transition: all 0.4s ease;
+            position: relative;
+        }}
+        
+        .product-card:hover {{
+            transform: translateY(-10px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }}
+        
+        .product-image {{
+            width: 100%;
+            height: 250px;
+            object-fit: cover;
+            transition: transform 0.4s ease;
+        }}
+        
+        .product-card:hover .product-image {{
+            transform: scale(1.05);
+        }}
+        
+        .product-info {{
+            padding: 24px;
+        }}
+        
+        .product-name {{
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-dark);
+        }}
+        
+        .product-price {{
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 12px;
+        }}
+        
+        .product-description {{
+            color: var(--text-gray);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }}
+        
+        .product-actions {{
+            display: flex;
+            gap: 10px;
+        }}
+        
+        .add-to-cart {{
+            flex: 1;
+            background: var(--primary-color);
+            color: var(--text-light);
+            border: none;
+            border-radius: 10px;
+            padding: 12px 20px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }}
+        
+        .add-to-cart:hover {{
+            background: var(--secondary-color);
+            transform: translateY(-2px);
+        }}
+        
+        .add-to-cart.added {{
+            background: var(--success-color);
+        }}
+        
+        .quantity-controls {{
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }}
+        
+        .quantity-controls.active {{
+            display: flex;
+        }}
+        
+        .quantity-btn {{
+            background: var(--accent-color);
+            border: none;
+            border-radius: 6px;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: 600;
+        }}
+        
+        .quantity-display {{
+            font-weight: 600;
+            min-width: 30px;
+            text-align: center;
+        }}
+        
+        /* Cart Sidebar */
+        .cart-sidebar {{
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: var(--card-color);
+            box-shadow: -5px 0 25px rgba(0,0,0,0.2);
+            z-index: 2000;
+            transition: right 0.4s ease;
+            display: flex;
+            flex-direction: column;
+        }}
+        
+        .cart-sidebar.open {{
+            right: 0;
+        }}
+        
+        .cart-header {{
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }}
+        
+        .cart-title {{
+            font-size: 20px;
+            font-weight: 600;
+        }}
+        
+        .close-cart {{
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-gray);
+        }}
+        
+        .cart-items {{
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }}
+        
+        .cart-item {{
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }}
+        
+        .cart-item-image {{
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+        }}
+        
+        .cart-item-info {{
+            flex: 1;
+        }}
+        
+        .cart-item-name {{
+            font-weight: 600;
+            margin-bottom: 5px;
+        }}
+        
+        .cart-item-price {{
+            color: var(--primary-color);
+            font-weight: 600;
+        }}
+        
+        .cart-total {{
+            padding: 20px;
+            border-top: 2px solid var(--primary-color);
+            background: var(--background-color);
+        }}
+        
+        .total-amount {{
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }}
+        
+        .checkout-btn {{
+            width: 100%;
+            background: var(--whatsapp-color);
+            color: var(--text-light);
+            border: none;
+            border-radius: 12px;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }}
+        
+        .checkout-btn:hover {{
+            background: #20b954;
+            transform: translateY(-2px);
+        }}
+        
+        /* Cart Overlay */
+        .cart-overlay {{
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1500;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }}
+        
+        .cart-overlay.active {{
+            opacity: 1;
+            visibility: visible;
+        }}
+        
+        /* Footer */
+        footer {{
+            background: var(--text-dark);
+            color: var(--text-light);
+            padding: 60px 0 30px;
+            margin-top: 80px;
+        }}
+        
+        .footer-content {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }}
+        
+        .footer-section h3 {{
+            font-family: 'Playfair Display', serif;
+            margin-bottom: 20px;
+            color: var(--accent-color);
+        }}
+        
+        .footer-link {{
+            color: rgba(255,255,255,0.8);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 10px;
+            transition: color 0.3s ease;
+        }}
+        
+        .footer-link:hover {{
+            color: var(--accent-color);
+        }}
+        
+        .footer-bottom {{
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.6);
+        }}
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {{
+            .cart-sidebar {{
+                width: 100%;
+                right: -100%;
+            }}
+            
+            .hero-title {{
+                font-size: 36px;
+            }}
+            
+            .hero-stats {{
+                flex-direction: column;
+                gap: 20px;
+            }}
+            
+            .products-grid {{
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 20px;
+            }}
+            
+            .header-content {{
+                flex-wrap: wrap;
+                gap: 15px;
+            }}
+        }}
+        
+        /* Animations */
+        @keyframes addToCart {{
+            0% {{ transform: scale(1); }}
+            50% {{ transform: scale(1.1); }}
+            100% {{ transform: scale(1); }}
+        }}
+        
+        .add-to-cart.animating {{
+            animation: addToCart 0.3s ease;
+        }}
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <div class="logo-icon">
+                        {profile_data.get('full_name', instagram_username)[0]}
+                    </div>
+                    <div class="logo-text">{profile_data.get('full_name', instagram_username)}</div>
+                </div>
+                <div class="header-actions">
+                    <button class="cart-button" onclick="toggleCart()">
+                        <i class="fas fa-shopping-cart"></i>
+                        <span class="cart-count" id="cartCount">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">{profile_data.get('full_name', instagram_username)}</h1>
+                <p class="hero-subtitle">{profile_data.get('bio', 'Discover our amazing collection of products')}</p>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <span class="stat-number">{profile_data.get('followers', 0):,}</span>
+                        <span class="stat-label">Followers</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{profile_data.get('post_count', 0)}</span>
+                        <span class="stat-label">Posts</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-number">{len(products)}</span>
+                        <span class="stat-label">Products</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="products-section">
+        <div class="container">
+            <h2 class="section-title">Our Products</h2>
+            <p class="section-subtitle">Handpicked collection just for you</p>
+            
+            <div class="products-grid" id="productsGrid">"""
+
+    # Add products dynamically
+    for i, product in enumerate(products):
+        template += f"""
+                <div class="product-card">
+                    <img src="{product['image']}" alt="{product['name']}" class="product-image">
+                    <div class="product-info">
+                        <h3 class="product-name">{product['name']}</h3>
+                        <div class="product-price">₹{product['price']}</div>
+                        <p class="product-description">{product['description']}</p>
+                        <div class="product-actions">
+                            <button class="add-to-cart" onclick="addToCart('{product['name']}', {product['price']}, '{product['image']}', this)" data-product-id="{i}">
+                                <i class="fas fa-cart-plus"></i> Add to Cart
+                            </button>
+                            <div class="quantity-controls" id="qty-{i}">
+                                <button class="quantity-btn" onclick="updateQuantity('{product['name']}', -1)">-</button>
+                                <span class="quantity-display" id="qty-display-{i}">1</span>
+                                <button class="quantity-btn" onclick="updateQuantity('{product['name']}', 1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>"""
+
+    template += f"""
+            </div>
+        </div>
+    </section>
+
+    <!-- Cart Sidebar -->
+    <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
+    <div class="cart-sidebar" id="cartSidebar">
+        <div class="cart-header">
+            <h3 class="cart-title">Your Cart</h3>
+            <button class="close-cart" onclick="toggleCart()">&times;</button>
+        </div>
+        <div class="cart-items" id="cartItems">
+            <p style="text-align: center; color: #999; padding: 40px 0;">Your cart is empty</p>
+        </div>
+        <div class="cart-total">
+            <div class="total-amount">Total: ₹<span id="totalAmount">0</span></div>
+            <button class="checkout-btn" onclick="checkout()" id="checkoutBtn" disabled>
+                <i class="fab fa-whatsapp"></i>
+                Order via WhatsApp
+            </button>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3>Contact Us</h3>
+                    <a href="https://wa.me/{whatsapp_number}" class="footer-link">
+                        <i class="fab fa-whatsapp"></i> WhatsApp: +91 {whatsapp_number[2:]}
+                    </a>
+                    <a href="https://instagram.com/{instagram_username}" class="footer-link">
+                        <i class="fab fa-instagram"></i> @{instagram_username}
+                    </a>
+                </div>
+                <div class="footer-section">
+                    <h3>Quick Links</h3>
+                    <a href="#" class="footer-link">About Us</a>
+                    <a href="#" class="footer-link">Privacy Policy</a>
+                    <a href="#" class="footer-link">Terms of Service</a>
+                </div>
+                <div class="footer-section">
+                    <h3>Follow Us</h3>
+                    <a href="https://instagram.com/{instagram_username}" class="footer-link">Instagram</a>
+                    <a href="#" class="footer-link">Facebook</a>
+                    <a href="#" class="footer-link">Twitter</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2024 {profile_data.get('full_name', instagram_username)}. All rights reserved. | Powered by <a href="#" style="color: var(--accent-color);">InHouse</a></p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Cart functionality
+        let cart = [];
+        let isCartOpen = false;
+
+        function toggleCart() {{
+            const sidebar = document.getElementById('cartSidebar');
+            const overlay = document.getElementById('cartOverlay');
+            
+            isCartOpen = !isCartOpen;
+            
+            if (isCartOpen) {{
+                sidebar.classList.add('open');
+                overlay.classList.add('active');
+                document.body.style.overflow = 'hidden';
+            }} else {{
+                sidebar.classList.remove('open');
+                overlay.classList.remove('active');
+                document.body.style.overflow = 'auto';
+            }}
+        }}
+
+        function addToCart(name, price, image, buttonElement) {{
+            const existingItem = cart.find(item => item.name === name);
+            
+            if (existingItem) {{
+                existingItem.quantity += 1;
+            }} else {{
+                cart.push({{
+                    name: name,
+                    price: parseInt(price),
+                    image: image,
+                    quantity: 1
+                }});
+            }}
+            
+            // Animation effect
+            buttonElement.classList.add('animating');
+            setTimeout(() => buttonElement.classList.remove('animating'), 300);
+            
+            updateCartDisplay();
+            updateCartUI();
+        }}
+
+        function updateQuantity(name, change) {{
+            const item = cart.find(item => item.name === name);
+            if (item) {{
+                item.quantity += change;
+                if (item.quantity <= 0) {{
+                    cart = cart.filter(item => item.name !== name);
+                }}
+            }}
+            updateCartDisplay();
+            updateCartUI();
+        }}
+
+        function removeFromCart(name) {{
+            cart = cart.filter(item => item.name !== name);
+            updateCartDisplay();
+            updateCartUI();
+        }}
+
+        function updateCartDisplay() {{
+            const cartCount = document.getElementById('cartCount');
+            const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+            cartCount.textContent = totalItems;
+            cartCount.style.display = totalItems > 0 ? 'flex' : 'none';
+        }}
+
+        function updateCartUI() {{
+            const cartItems = document.getElementById('cartItems');
+            const totalAmount = document.getElementById('totalAmount');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+            
+            if (cart.length === 0) {{
+                cartItems.innerHTML = '<p style="text-align: center; color: #999; padding: 40px 0;">Your cart is empty</p>';
+                totalAmount.textContent = '0';
+                checkoutBtn.disabled = true;
+                return;
+            }}
+            
+            let total = 0;
+            cartItems.innerHTML = cart.map(item => {{
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+                
+                return `
+                    <div class="cart-item">
+                        <img src="${{item.image}}" alt="${{item.name}}" class="cart-item-image">
+                        <div class="cart-item-info">
+                            <div class="cart-item-name">${{item.name}}</div>
+                            <div class="cart-item-price">₹${{item.price}} × ${{item.quantity}} = ₹${{itemTotal}}</div>
+                        </div>
+                        <div class="quantity-controls active">
+                            <button class="quantity-btn" onclick="updateQuantity('${{item.name}}', -1)">-</button>
+                            <span class="quantity-display">${{item.quantity}}</span>
+                            <button class="quantity-btn" onclick="updateQuantity('${{item.name}}', 1)">+</button>
+                        </div>
+                        <button onclick="removeFromCart('${{item.name}}')" style="background: none; border: none; color: #999; cursor: pointer;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+            }}).join('');
+            
+            totalAmount.textContent = total.toLocaleString();
+            checkoutBtn.disabled = false;
+        }}
+
+        function checkout() {{
+            if (cart.length === 0) return;
+            
+            // Create detailed order message
+            let message = `🛒 *New Order from {profile_data.get('full_name', instagram_username)}*\\n\\n`;
+            message += `📱 *Customer Details:*\\n`;
+            message += `Website: {instagram_username}\\n\\n`;
+            
+            message += `🛍️ *Order Items:*\\n`;
+            let total = 0;
+            
+            cart.forEach((item, index) => {{
+                const itemTotal = item.price * item.quantity;
+                total += itemTotal;
+                message += `${{index + 1}}. *${{item.name}}*\\n`;
+                message += `   Price: ₹${{item.price}}\\n`;
+                message += `   Quantity: ${{item.quantity}}\\n`;
+                message += `   Subtotal: ₹${{itemTotal}}\\n\\n`;
+            }});
+            
+            message += `💰 *Total Amount: ₹${{total}}*\\n\\n`;
+            message += `📞 Please confirm this order and share payment details.\\n`;
+            message += `🚚 Let me know your delivery address.\\n\\n`;
+            message += `Thank you for choosing {profile_data.get('full_name', instagram_username)}! 🙏`;
+            
+            // Create URL with all cart details as parameters
+            const cartData = encodeURIComponent(JSON.stringify(cart));
+            const orderTotal = total;
+            const customerInfo = encodeURIComponent(instagram_username);
+            
+            const whatsappUrl = `https://wa.me/{whatsapp_number}?text=${{encodeURIComponent(message)}}&cart=${{cartData}}&total=${{orderTotal}}&customer=${{customerInfo}}`;
+            
+            // Open WhatsApp
+            window.open(whatsappUrl, '_blank');
+            
+            // Clear cart after successful order
+            cart = [];
+            updateCartDisplay();
+            updateCartUI();
+            toggleCart();
+            
+            // Show success message
+            alert('Order sent to WhatsApp! We will contact you soon.');
+        }}
+
+        // Initialize cart display
+        updateCartDisplay();
+        updateCartUI();
+    </script>
+</body>
+</html>"""
+
+    return template
+
+
+def generate_enhanced_catalog_website(instagram_username, profile_data, products):
+    """Legacy function - redirect to new enhanced version"""
+    return generate_enhanced_shopping_website(instagram_username, profile_data, products)
+
+
 def generate_catalog_website(instagram_username, profile_data, products):
     """Generate a custom catalog website from template"""
     # Since we can't read from file system easily, we'll embed the template
@@ -2887,7 +3773,7 @@ We're continuously improving our extraction methods."""
         # Generate website
         try:
             print(f"🌐 Generating website for {username}")
-            html_content = generate_catalog_website(username, profile_data, products)
+            html_content = generate_enhanced_shopping_website(username, profile_data, products)
             print(f"📄 Website generated, length: {len(html_content)} characters")
             
             catalog_url = save_catalog_website(username, html_content)
@@ -3167,7 +4053,7 @@ def process_instagram_async(username, phone_number):
             'post_count': profile_data.get('post_count', 0)
         }
         
-        html_content = generate_catalog_website(username, website_data, products)
+        html_content = generate_enhanced_shopping_website(username, website_data, products)
         
         # Step 6: Save website
         catalog_url = save_catalog_website(username, html_content)
@@ -3367,7 +4253,7 @@ def process_instagram_with_api(username, access_token):
             products = generate_smart_mock_products(business_info['name'], business_info['bio'])
         
         # Generate website
-        html_content = generate_catalog_website(username, profile_data, products)
+        html_content = generate_enhanced_shopping_website(username, profile_data, products)
         save_catalog_website(username, html_content)
         
         # Store in global dict
